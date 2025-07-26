@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- SortableJS for drag & drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Menu -->
+        <div class="sidebar">
+            <h2>Admin Panel</h2>
+            <ul class="menu-list">
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="orders.html">Orders</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="collections.html">Collections</a></li>
+                <li class="active"><a href="navigation.html">Navigation</a></li>
+                <li><a href="pages.html">Pages</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div class="header">
+                <h1>Navigation</h1>
+                <button class="btn btn-primary" id="saveMenuBtn">Save Menu</button>
+            </div>
+            
+            <div class="content-card">
+                <h3>Main Menu</h3>
+                <div id="menu-list-container" class="menu-list-container">
+                    <!-- Menu items will be loaded here -->
+                    <p class="empty-message">Loading menu...</p>
+                </div>
+                <button class="btn" id="addMenuItemBtn" style="margin-top: 20px;">Add menu item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Add/Edit Menu Item -->
+    <div id="menuItemModal" class="modal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add menu item</h3>
+                <span class="close-modal" onclick="closeModal('menuItemModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="itemName" class="form-label">Name</label>
+                    <input type="text" id="itemName" class="form-control" placeholder="e.g. Home">
+                </div>
+                <div class="form-group">
+                    <label for="itemLink" class="form-label">Link</label>
+                    <div class="searchable-select-container">
+                        <input type="text" id="itemLink" class="form-control" placeholder="Search for or type a link">
+                        <div class="dropdown-list" id="linkSuggestions"></div>
+                    </div>
+                </div>
+                <input type="hidden" id="itemId">
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="removeItemBtn" style="float: left; color: var(--danger-color); display: none;">Remove</button>
+                <button class="btn" onclick="closeModal('menuItemModal')">Cancel</button>
+                <button class="btn btn-primary" id="applyChangesBtn">Apply changes</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast-notification" class="toast"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKK4FmXtcMniVv6_5-mFPBJICwEM5Dkzc",
+            authDomain: "nasir-9102c.firebaseapp.com",
+            projectId: "nasir-9102c",
+            storageBucket: "nasir-9102c.firebasestorage.app",
+            messagingSenderId: "182224792140",
+            appId: "1:182224792140:web:42348e8b24f94cdf07e2e9",
+            measurementId: "G-8R5J241MJM"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- State and DOM Elements ---
+        let linkSuggestions = [];
+        const menuContainer = document.getElementById('menu-list-container');
+        const addBtn = document.getElementById('addMenuItemBtn');
+        const saveBtn = document.getElementById('saveMenuBtn');
+        const modal = document.getElementById('menuItemModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const itemNameInput = document.getElementById('itemName');
+        const itemLinkInput = document.getElementById('itemLink');
+        const itemIdInput = document.getElementById('itemId');
+        const applyBtn = document.getElementById('applyChangesBtn');
+        const removeBtn = document.getElementById('removeItemBtn');
+        const linkSuggestionsDiv = document.getElementById('linkSuggestions');
+        const toast = document.getElementById('toast-notification');
+
+        // --- Load Master Data for Link Suggestions ---
+        async function loadLinkSuggestions() {
+            linkSuggestions = [{ name: 'Home Page', link: '/' }];
+            const pagesSnapshot = await getDocs(collection(db, "pages"));
+            pagesSnapshot.forEach(doc => {
+                linkSuggestions.push({ name: `Page: ${doc.data().title}`, link: `/pages/${doc.id}` });
+            });
+            const collectionsSnapshot = await getDocs(collection(db, "collections"));
+            collectionsSnapshot.forEach(doc => {
+                linkSuggestions.push({ name: `Collection: ${doc.data().name}`, link: `/collections/${doc.id}` });
+            });
+        }
+
+        // --- Render Menu from Data ---
+        function renderMenu(items, container) {
+            container.innerHTML = '';
+            items.forEach(item => {
+                const itemEl = createMenuItemElement(item.id, item.name, item.link);
+                
+                if (item.children && item.children.length > 0) {
+                    const childrenContainer = itemEl.querySelector('.menu-item-children');
+                    renderMenu(item.children, childrenContainer);
+                }
+                container.appendChild(itemEl);
+            });
+        }
+
+        // --- Create a single menu item element ---
+        function createMenuItemElement(id, name, link) {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'menu-item';
+            itemEl.dataset.id = id;
+            itemEl.dataset.name = name;
+            itemEl.dataset.link = link;
+            itemEl.innerHTML = `
+                <div class="menu-item-content">
+                    <i class="fas fa-grip-vertical drag-handle"></i>
+                    <span>${name}</span>
+                </div>
+                <div class="menu-item-children"></div>
+            `;
+            return itemEl;
+        }
+
+        // --- Load Menu from Firebase ---
+        async function loadMenu() {
+            const menuRef = doc(db, "navigation", "main-menu");
+            const docSnap = await getDoc(menuRef);
+            if (docSnap.exists() && docSnap.data().items) {
+                renderMenu(docSnap.data().items, menuContainer);
+            } else {
+                menuContainer.innerHTML = '<p class="empty-message">No menu items yet. Add one to get started!</p>';
+            }
+            initSortable();
+        }
+
+        // --- Initialize Drag & Drop ---
+        function initSortable() {
+            const lists = document.querySelectorAll('.menu-list-container, .menu-item-children');
+            lists.forEach(list => {
+                new Sortable(list, {
+                    group: 'nested',
+                    animation: 150,
+                    handle: '.drag-handle',
+                    fallbackOnBody: true,
+                    swapThreshold: 0.65
+                });
+            });
+        }
+
+        // --- Modal Logic ---
+        function openModal(mode, element = null) {
+            if (mode === 'add') {
+                modalTitle.textContent = 'Add menu item';
+                itemIdInput.value = Date.now();
+                itemNameInput.value = '';
+                itemLinkInput.value = '';
+                removeBtn.style.display = 'none';
+            } else { // 'edit'
+                modalTitle.textContent = 'Edit menu item';
+                itemIdInput.value = element.dataset.id;
+                itemNameInput.value = element.dataset.name;
+                itemLinkInput.value = element.dataset.link;
+                removeBtn.style.display = 'block';
+            }
+            modal.style.display = 'flex';
+        }
+
+        addBtn.addEventListener('click', () => openModal('add'));
+        menuContainer.addEventListener('click', (e) => {
+            const item = e.target.closest('.menu-item-content');
+            if (item && !e.target.classList.contains('drag-handle')) {
+                openModal('edit', item.closest('.menu-item'));
+            }
+        });
+
+        applyBtn.addEventListener('click', () => {
+            const id = itemIdInput.value;
+            const name = itemNameInput.value.trim();
+            const link = itemLinkInput.value.trim();
+            if (!name || !link) return alert("Name and Link are required.");
+
+            let itemEl = document.querySelector(`.menu-item[data-id="${id}"]`);
+            if (itemEl) { // Editing existing
+                itemEl.dataset.name = name;
+                itemEl.dataset.link = link;
+                itemEl.querySelector('.menu-item-content span').textContent = name;
+            } else { // Adding new
+                if (menuContainer.querySelector('.empty-message')) {
+                    menuContainer.innerHTML = '';
+                }
+                itemEl = createMenuItemElement(id, name, link);
+                menuContainer.appendChild(itemEl);
+                initSortable();
+            }
+            closeModal('menuItemModal');
+        });
+        
+        removeBtn.addEventListener('click', () => {
+             const id = itemIdInput.value;
+             const itemEl = document.querySelector(`.menu-item[data-id="${id}"]`);
+             if(itemEl && confirm('Are you sure you want to remove this menu item?')) {
+                 itemEl.remove();
+                 closeModal('menuItemModal');
+             }
+        });
+
+        // --- Link Suggestions Logic ---
+        itemLinkInput.addEventListener('input', () => {
+            const term = itemLinkInput.value.toLowerCase();
+            const filtered = linkSuggestions.filter(s => s.name.toLowerCase().includes(term) || s.link.toLowerCase().includes(term));
+            linkSuggestionsDiv.innerHTML = '';
+            if(filtered.length > 0 && term) {
+                filtered.forEach(s => {
+                    const item = document.createElement('div');
+                    item.className = 'dropdown-item';
+                    item.textContent = s.name;
+                    item.onclick = () => {
+                        itemLinkInput.value = s.link;
+                        linkSuggestionsDiv.style.display = 'none';
+                    };
+                    linkSuggestionsDiv.appendChild(item);
+                });
+                linkSuggestionsDiv.style.display = 'block';
+            } else {
+                linkSuggestionsDiv.style.display = 'none';
+            }
+        });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.searchable-select-container')) {
+                linkSuggestionsDiv.style.display = 'none';
+            }
+        });
+
+        // --- Save Menu to Firebase ---
+        function domToJs(container) {
+            const items = [];
+            // Use direct children to avoid deep nesting issues
+            const childNodes = Array.from(container.children).filter(node => node.matches('.menu-item'));
+            
+            childNodes.forEach(node => {
+                const item = {
+                    id: node.dataset.id,
+                    name: node.dataset.name,
+                    link: node.dataset.link,
+                    children: []
+                };
+                const childrenContainer = node.querySelector('.menu-item-children');
+                if (childrenContainer && childrenContainer.children.length > 0) {
+                    item.children = domToJs(childrenContainer);
+                }
+                items.push(item);
+            });
+            return items;
+        }
+
+        saveBtn.addEventListener('click', async () => {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            const menuData = { items: domToJs(menuContainer) };
+            try {
+                await setDoc(doc(db, "navigation", "main-menu"), menuData);
+                showToast("Menu saved successfully!");
+            } catch (error) {
+                console.error("Error saving menu: ", error);
+                showToast("Error: Could not save menu.");
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Menu';
+            }
+        });
+
+        // --- Helper Functions ---
+        window.closeModal = (modalId) => document.getElementById(modalId).style.display = 'none';
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadLinkSuggestions();
+            await loadMenu();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Order - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Menu -->
+        <div class="sidebar">
+            <h2>Admin Panel</h2>
+            <ul class="menu-list">
+                <li class="active"><a href="orders.html">Orders</a></li>
+                <!-- Other menus -->
+            </ul>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div id="loader" class="content-card" style="text-align: center;">Loading order details...</div>
+            
+            <div id="orderDetailsContainer" style="display: none;">
+                <div class="header">
+                    <div class="header-left">
+                        <h1 id="orderTitle">Order #...</h1>
+                        <span id="orderDate" class="text-secondary"></span>
+                    </div>
+                    <div class="header-actions">
+                        <a href="#" id="editOrderBtn" class="btn">Edit Order</a>
+                    </div>
+                </div>
+
+                <div class="order-details-layout">
+                    <!-- Left Column: Order Summary -->
+                    <div class="order-summary-column">
+                        <div class="content-card">
+                            <h3>Order Summary</h3>
+                            <div id="productList" class="product-list-summary">
+                                <!-- Products will be loaded here -->
+                            </div>
+                            <div class="summary-totals">
+                                <div class="summary-row"><span>Subtotal</span><span id="subtotal"></span></div>
+                                <div class="summary-row"><span>Shipping</span><span id="shipping"></span></div>
+                                <div class="summary-row total"><span>Total</span><span id="total"></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Customer & Status -->
+                    <div class="order-customer-column">
+                        <div class="content-card">
+                            <h3>Customer Details</h3>
+                            <p id="customerName"></p>
+                            <p id="customerPhone"></p>
+                            <p id="customerAddress"></p>
+                        </div>
+                        <div class="content-card">
+                            <h3>Order Status</h3>
+                            <select id="statusDropdown" class="form-control">
+                                <option value="Confirm">Confirm</option>
+                                <option value="Curier">Curier</option>
+                                <option value="Delivery">Delivery</option>
+                                <option value="Paid">Paid</option>
+                                <option value="Cancel">Cancel</option>
+                                <option value="Return">Return</option>
+                                <option value="Parsial Delevery">Parsial Delevery</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image View Modal -->
+    <div id="imageModal" class="modal">
+        <span class="close-modal" onclick="this.parentElement.style.display='none'">&times;</span>
+        <img class="modal-content" id="modalImage">
+    </div>
+    <div id="toast-notification" class="toast"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+        import { getFirestore, doc, getDoc, updateDoc, runTransaction } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+        // FIXED: Added the correct Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKK4FmXtcMniVv6_5-mFPBJICwEM5Dkzc",
+            authDomain: "nasir-9102c.firebaseapp.com",
+            projectId: "nasir-9102c",
+            storageBucket: "nasir-9102c.firebasestorage.app",
+            messagingSenderId: "182224792140",
+            appId: "1:182224792140:web:42348e8b24f94cdf07e2e9",
+            measurementId: "G-8R5J241MJM"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- DOM Elements & State ---
+        const loader = document.getElementById('loader');
+        const container = document.getElementById('orderDetailsContainer');
+        const statusDropdown = document.getElementById('statusDropdown');
+        const toast = document.getElementById('toast-notification');
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('id');
+        let currentOrderData = null;
+        let initialStatus = '';
+
+        // --- Load Order Data ---
+        async function loadOrderDetails() {
+            if (!orderId) {
+                loader.textContent = "Error: No Order ID provided.";
+                return;
+            }
+            try {
+                const orderRef = doc(db, "orders", orderId);
+                const docSnap = await getDoc(orderRef);
+
+                if (docSnap.exists()) {
+                    currentOrderData = docSnap.data();
+                    initialStatus = currentOrderData.status;
+                    
+                    // Populate Header
+                    document.getElementById('orderTitle').textContent = `Order #${currentOrderData.orderId}`;
+                    const date = new Date(currentOrderData.orderDate.seconds * 1000);
+                    document.getElementById('orderDate').textContent = `Placed on ${date.toLocaleString()}`;
+                    document.getElementById('editOrderBtn').href = `edit-order.html?id=${orderId}`;
+
+                    // Populate Customer Details
+                    document.getElementById('customerName').textContent = currentOrderData.customerDetails.name;
+                    document.getElementById('customerPhone').textContent = currentOrderData.customerDetails.phone;
+                    document.getElementById('customerAddress').textContent = currentOrderData.customerDetails.address;
+
+                    // Populate Order Summary
+                    const productListDiv = document.getElementById('productList');
+                    productListDiv.innerHTML = '';
+                    currentOrderData.products.forEach(p => {
+                        productListDiv.innerHTML += `
+                            <div class="product-item">
+                                <img src="${p.imageUrl}" alt="${p.name}" onclick="viewImage('${p.imageUrl}')">
+                                <div class="product-info">
+                                    <span>${p.name}</span>
+                                    <span class="text-secondary">Qty: ${p.quantity}</span>
+                                </div>
+                                <span class="product-price">৳${p.price * p.quantity}</span>
+                            </div>
+                        `;
+                    });
+                    document.getElementById('subtotal').textContent = `৳${currentOrderData.summary.subtotal}`;
+                    document.getElementById('shipping').textContent = `৳${currentOrderData.summary.shipping}`;
+                    document.getElementById('total').textContent = `৳${currentOrderData.summary.total}`;
+
+                    // Set Status Dropdown
+                    statusDropdown.value = currentOrderData.status;
+
+                    loader.style.display = 'none';
+                    container.style.display = 'block';
+                } else {
+                    loader.textContent = "Error: Order not found.";
+                }
+            } catch (error) {
+                console.error("Error loading order:", error);
+                loader.textContent = "Error loading data.";
+            }
+        }
+
+        // --- Update Status Logic ---
+        statusDropdown.addEventListener('change', async () => {
+            const newStatus = statusDropdown.value;
+            if (newStatus === initialStatus) return;
+
+            const orderRef = doc(db, "orders", orderId);
+
+            try {
+                // Check for stock update
+                const shouldRestock = (newStatus === 'Cancel' || newStatus === 'Return') && (initialStatus !== 'Cancel' && initialStatus !== 'Return');
+                
+                if (shouldRestock) {
+                    await runTransaction(db, async (transaction) => {
+                        for (const product of currentOrderData.products) {
+                            // This assumes you have a productId saved with the order item
+                            const productRef = doc(db, "products", product.productId);
+                            const productDoc = await transaction.get(productRef);
+                            if (productDoc.exists()) {
+                                const newStock = (productDoc.data().quantity || 0) + product.quantity;
+                                transaction.update(productRef, { quantity: newStock });
+                            }
+                        }
+                        transaction.update(orderRef, { status: newStatus });
+                    });
+                    showToast(`Status updated and stock restored.`);
+                } else {
+                    await updateDoc(orderRef, { status: newStatus });
+                    showToast(`Order status updated to ${newStatus}.`);
+                }
+                initialStatus = newStatus; // Update initial status to prevent re-stocking
+            } catch (error) {
+                console.error("Error updating status: ", error);
+                showToast("Error: Could not update status.");
+                statusDropdown.value = initialStatus; // Revert dropdown on error
+            }
+        });
+
+        // --- Helper Functions ---
+        window.viewImage = (src) => {
+            document.getElementById('modalImage').src = src;
+            document.getElementById('imageModal').style.display = 'flex';
+        };
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', loadOrderDetails);
+    </script>
+</body>
+</html>

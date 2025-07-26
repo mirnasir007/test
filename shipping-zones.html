@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shipping Zones - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Menu -->
+        <div class="sidebar">
+            <h2>Admin Panel</h2>
+            <ul class="menu-list">
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="orders.html">Orders</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="collections.html">Collections</a></li>
+                <li><a href="navigation.html">Navigation</a></li>
+                <li><a href="announcements.html">Announcements</a></li>
+                <li class="active"><a href="shipping-zones.html">Shipping Zones</a></li>
+                <li><a href="pages.html">Pages</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div class="header">
+                <h1>Shipping Zones</h1>
+                <button class="btn btn-primary" id="addZoneBtn">Add New Zone</button>
+            </div>
+            
+            <div class="content-card">
+                <div id="zonesList">
+                    <p class="empty-message">Loading shipping zones...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Add/Edit Zone -->
+    <div id="zoneModal" class="modal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add New Zone</h3>
+                <span class="close-modal" onclick="closeModal('zoneModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="zoneName" class="form-label">Zone Name</label>
+                    <input type="text" id="zoneName" class="form-control" placeholder="e.g. Inside Dhaka">
+                </div>
+                <div class="form-group">
+                    <label for="zoneAmount" class="form-label">Amount (৳)</label>
+                    <input type="number" id="zoneAmount" class="form-control" placeholder="e.g. 60">
+                </div>
+                <input type="hidden" id="zoneId">
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal('zoneModal')">Cancel</button>
+                <button class="btn btn-primary" id="saveZoneBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="confirmDeleteModal" class="modal">
+        <div class="modal-dialog">
+            <div class="modal-header"><h3>Delete Zone</h3></div>
+            <div class="modal-body"><p>Are you sure you want to delete this shipping zone?</p></div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal('confirmDeleteModal')">Cancel</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-notification" class="toast"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+        import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKK4FmXtcMniVv6_5-mFPBJICwEM5Dkzc",
+            authDomain: "nasir-9102c.firebaseapp.com",
+            projectId: "nasir-9102c",
+            storageBucket: "nasir-9102c.firebasestorage.app",
+            messagingSenderId: "182224792140",
+            appId: "1:182224792140:web:42348e8b24f94cdf07e2e9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const zonesListDiv = document.getElementById('zonesList');
+        const addZoneBtn = document.getElementById('addZoneBtn');
+        const zoneModal = document.getElementById('zoneModal');
+        const saveZoneBtn = document.getElementById('saveZoneBtn');
+        const zoneNameInput = document.getElementById('zoneName');
+        const zoneAmountInput = document.getElementById('zoneAmount');
+        const zoneIdInput = document.getElementById('zoneId');
+        const modalTitle = document.getElementById('modalTitle');
+        const toast = document.getElementById('toast-notification');
+        
+        // --- Load and Display Zones ---
+        async function loadZones() {
+            const zonesRef = collection(db, "shipping_zones");
+            const querySnapshot = await getDocs(zonesRef);
+            
+            zonesListDiv.innerHTML = '';
+            if (querySnapshot.empty) {
+                zonesListDiv.innerHTML = '<p class="empty-message">No shipping zones found. Add one to get started!</p>';
+                return;
+            }
+
+            querySnapshot.forEach((docSnap) => {
+                const zoneData = docSnap.data();
+                const zoneId = docSnap.id;
+
+                const zoneElement = document.createElement('div');
+                zoneElement.className = 'list-item';
+                zoneElement.dataset.id = zoneId;
+                zoneElement.innerHTML = `
+                    <div class="list-item-info">
+                        <span class="list-item-title">${zoneData.name}</span>
+                        <span class="list-item-subtitle">Charge: ৳${zoneData.amount}</span>
+                    </div>
+                    <div class="list-item-actions">
+                        <i class="fas fa-edit icon-edit" title="Edit"></i>
+                        <i class="fas fa-trash icon-delete" title="Delete"></i>
+                    </div>
+                `;
+                zonesListDiv.appendChild(zoneElement);
+            });
+        }
+
+        // --- Modal and Form Logic ---
+        addZoneBtn.addEventListener('click', () => {
+            modalTitle.textContent = 'Add New Zone';
+            zoneIdInput.value = '';
+            zoneNameInput.value = '';
+            zoneAmountInput.value = '';
+            zoneModal.style.display = 'flex';
+        });
+
+        saveZoneBtn.addEventListener('click', async () => {
+            const name = zoneNameInput.value.trim();
+            const amount = parseFloat(zoneAmountInput.value);
+            const id = zoneIdInput.value;
+
+            if (!name || isNaN(amount)) {
+                alert('Zone Name and a valid Amount are required.');
+                return;
+            }
+
+            saveZoneBtn.disabled = true;
+
+            try {
+                const zoneData = { name, amount };
+                if (id) { // Editing existing zone
+                    const zoneRef = doc(db, "shipping_zones", id);
+                    await updateDoc(zoneRef, zoneData);
+                    showToast("Zone updated successfully!");
+                } else { // Adding new zone
+                    await addDoc(collection(db, "shipping_zones"), zoneData);
+                    showToast("Zone added successfully!");
+                }
+                closeModal('zoneModal');
+                loadZones(); // Refresh the list
+            } catch (error) {
+                console.error("Error saving zone: ", error);
+                showToast("Error: Could not save zone.");
+            } finally {
+                saveZoneBtn.disabled = false;
+            }
+        });
+
+        // --- Event Delegation for Edit/Delete Icons ---
+        zonesListDiv.addEventListener('click', async (e) => {
+            const target = e.target;
+            const listItem = target.closest('.list-item');
+            if (!listItem) return;
+
+            const zoneId = listItem.dataset.id;
+            
+            if (target.classList.contains('icon-edit')) {
+                const zoneRef = doc(db, "shipping_zones", zoneId);
+                const docSnap = await getDoc(zoneRef);
+                if(docSnap.exists()){
+                    const data = docSnap.data();
+                    modalTitle.textContent = 'Edit Zone';
+                    zoneIdInput.value = zoneId;
+                    zoneNameInput.value = data.name;
+                    zoneAmountInput.value = data.amount;
+                    zoneModal.style.display = 'flex';
+                }
+            }
+            if (target.classList.contains('icon-delete')) {
+                showDeleteConfirm(zoneId);
+            }
+        });
+
+        // --- Delete Logic ---
+        const confirmDeleteModal = document.getElementById('confirmDeleteModal');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        let idToDelete = null;
+
+        function showDeleteConfirm(id) {
+            idToDelete = id;
+            confirmDeleteModal.style.display = 'flex';
+        }
+
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if (!idToDelete) return;
+            try {
+                await deleteDoc(doc(db, "shipping_zones", idToDelete));
+                showToast("Zone deleted successfully!");
+                loadZones();
+            } catch (error) {
+                console.error("Error deleting zone: ", error);
+                showToast("Error: Could not delete zone.");
+            }
+            closeModal('confirmDeleteModal');
+        });
+
+        // --- Helper Functions ---
+        window.closeModal = (modalId) => document.getElementById(modalId).style.display = 'none';
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+        window.addEventListener('click', (event) => {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        });
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', loadZones);
+    </script>
+</body>
+</html>

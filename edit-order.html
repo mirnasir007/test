@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Order - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Menu -->
+        <div class="sidebar">
+            <h2>Admin Panel</h2>
+            <ul class="menu-list">
+                <li class="active"><a href="orders.html">Orders</a></li>
+                <!-- Other menus -->
+            </ul>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div id="loader" class="content-card" style="text-align: center;">Loading order details...</div>
+            
+            <div id="orderDetailsContainer" style="display: none;">
+                <div class="header">
+                    <h1 id="orderTitle">Edit Order #...</h1>
+                    <div class="header-actions">
+                        <a href="#" id="cancelBtn" class="btn">Cancel</a>
+                        <button class="btn btn-primary" id="updateOrderBtn">Update Order</button>
+                    </div>
+                </div>
+
+                <div class="order-details-layout">
+                    <!-- Left Column: Order Summary -->
+                    <div class="order-summary-column">
+                        <div class="content-card">
+                            <h3>Order Summary</h3>
+                            <div id="productList" class="product-list-editable">
+                                <!-- Products will be loaded here -->
+                            </div>
+                            <div class="summary-totals">
+                                <div class="summary-row"><span>Subtotal</span><span id="subtotal"></span></div>
+                                <div class="summary-row"><span>Shipping</span><span id="shipping"></span></div>
+                                <div class="summary-row total"><span>Total</span><span id="total"></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Customer Details -->
+                    <div class="order-customer-column">
+                        <div class="content-card">
+                            <h3>Customer Details</h3>
+                            <div class="form-group">
+                                <label for="customerName" class="form-label">Name</label>
+                                <input type="text" id="customerName" class="form-control">
+                            </div>
+                             <div class="form-group">
+                                <label for="customerPhone" class="form-label">Phone</label>
+                                <input type="text" id="customerPhone" class="form-control">
+                            </div>
+                             <div class="form-group">
+                                <label for="customerAddress" class="form-label">Address</label>
+                                <textarea id="customerAddress" class="form-control" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-notification" class="toast"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+        import { getFirestore, doc, getDoc, updateDoc, runTransaction } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKK4FmXtcMniVv6_5-mFPBJICwEM5Dkzc",
+            authDomain: "nasir-9102c.firebaseapp.com",
+            projectId: "nasir-9102c",
+            storageBucket: "nasir-9102c.firebasestorage.app",
+            messagingSenderId: "182224792140",
+            appId: "1:182224792140:web:42348e8b24f94cdf07e2e9"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- DOM Elements & State ---
+        const loader = document.getElementById('loader');
+        const container = document.getElementById('orderDetailsContainer');
+        const productListDiv = document.getElementById('productList');
+        const updateOrderBtn = document.getElementById('updateOrderBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const toast = document.getElementById('toast-notification');
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('id');
+        let originalOrderData = null;
+        let currentProducts = [];
+
+        // --- Load Order Data ---
+        async function loadOrderDetails() {
+            if (!orderId) {
+                loader.textContent = "Error: No Order ID provided.";
+                return;
+            }
+            try {
+                const orderRef = doc(db, "orders", orderId);
+                const docSnap = await getDoc(orderRef);
+
+                if (docSnap.exists()) {
+                    originalOrderData = docSnap.data();
+                    currentProducts = JSON.parse(JSON.stringify(originalOrderData.products)); // Deep copy
+
+                    document.getElementById('orderTitle').textContent = `Edit Order #${originalOrderData.orderId}`;
+                    cancelBtn.href = `view-order.html?id=${orderId}`;
+
+                    document.getElementById('customerName').value = originalOrderData.customerDetails.name;
+                    document.getElementById('customerPhone').value = originalOrderData.customerDetails.phone;
+                    document.getElementById('customerAddress').value = originalOrderData.customerDetails.address;
+                    
+                    renderProducts();
+                    calculateSummary();
+
+                    loader.style.display = 'none';
+                    container.style.display = 'block';
+                } else {
+                    loader.textContent = "Error: Order not found.";
+                }
+            } catch (error) {
+                console.error("Error loading order:", error);
+                loader.textContent = "Error loading data.";
+            }
+        }
+
+        function renderProducts() {
+            productListDiv.innerHTML = '';
+            currentProducts.forEach((p, index) => {
+                productListDiv.innerHTML += `
+                    <div class="product-item-editable" data-index="${index}">
+                        <img src="${p.imageUrl}" alt="${p.name}">
+                        <div class="product-info">
+                            <span>${p.name}</span>
+                            <span class="text-secondary">Price: ৳${p.price}</span>
+                        </div>
+                        <div class="product-actions">
+                            <input type="number" class="form-control quantity-input" value="${p.quantity}" min="1">
+                            <button class="btn-icon-danger remove-product-btn">&times;</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Add event listeners after rendering
+            document.querySelectorAll('.quantity-input').forEach(input => {
+                input.addEventListener('change', handleQuantityChange);
+            });
+            document.querySelectorAll('.remove-product-btn').forEach(btn => {
+                btn.addEventListener('click', handleRemoveProduct);
+            });
+        }
+
+        function handleQuantityChange(event) {
+            const index = event.target.closest('.product-item-editable').dataset.index;
+            currentProducts[index].quantity = parseInt(event.target.value);
+            calculateSummary();
+        }
+
+        function handleRemoveProduct(event) {
+            const index = event.target.closest('.product-item-editable').dataset.index;
+            currentProducts.splice(index, 1);
+            renderProducts(); // Re-render to update indices and UI
+            calculateSummary();
+        }
+
+        function calculateSummary() {
+            const subtotal = currentProducts.reduce((sum, p) => sum + (p.price * p.quantity), 0);
+            const shipping = originalOrderData.summary.shipping; // Assuming shipping is fixed
+            const total = subtotal + shipping;
+
+            document.getElementById('subtotal').textContent = `৳${subtotal}`;
+            document.getElementById('shipping').textContent = `৳${shipping}`;
+            document.getElementById('total').textContent = `৳${total}`;
+        }
+
+        // --- Update Order Logic ---
+        updateOrderBtn.addEventListener('click', async () => {
+            updateOrderBtn.disabled = true;
+            updateOrderBtn.textContent = "Updating...";
+
+            const updatedCustomerDetails = {
+                name: document.getElementById('customerName').value,
+                phone: document.getElementById('customerPhone').value,
+                address: document.getElementById('customerAddress').value
+            };
+            
+            const updatedSubtotal = currentProducts.reduce((sum, p) => sum + (p.price * p.quantity), 0);
+            const updatedSummary = {
+                subtotal: updatedSubtotal,
+                shipping: originalOrderData.summary.shipping,
+                total: updatedSubtotal + originalOrderData.summary.shipping
+            };
+
+            try {
+                await runTransaction(db, async (transaction) => {
+                    // 1. Calculate stock changes
+                    const stockChanges = new Map();
+                    originalOrderData.products.forEach(origP => {
+                        const currentP = currentProducts.find(p => p.productId === origP.productId);
+                        const change = currentP ? origP.quantity - currentP.quantity : origP.quantity;
+                        if (change !== 0) {
+                            stockChanges.set(origP.productId, change);
+                        }
+                    });
+
+                    // 2. Apply stock changes
+                    for (const [productId, change] of stockChanges.entries()) {
+                        if (productId.startsWith("dummy")) continue; // Skip dummy products
+                        const productRef = doc(db, "products", productId);
+                        const productDoc = await transaction.get(productRef);
+                        if (productDoc.exists()) {
+                            const newStock = (productDoc.data().quantity || 0) + change;
+                            transaction.update(productRef, { quantity: newStock });
+                        }
+                    }
+
+                    // 3. Update the order document
+                    const orderRef = doc(db, "orders", orderId);
+                    transaction.update(orderRef, {
+                        customerDetails: updatedCustomerDetails,
+                        products: currentProducts,
+                        summary: updatedSummary
+                    });
+                });
+
+                showToast("Order updated successfully!");
+                setTimeout(() => { window.location.href = `view-order.html?id=${orderId}`; }, 1500);
+
+            } catch (error) {
+                console.error("Error updating order:", error);
+                showToast("Error: Could not update order.");
+                updateOrderBtn.disabled = false;
+                updateOrderBtn.textContent = "Update Order";
+            }
+        });
+
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', loadOrderDetails);
+    </script>
+</body>
+</html>

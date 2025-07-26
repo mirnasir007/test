@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Announcements - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Menu -->
+        <div class="sidebar">
+            <h2>Admin Panel</h2>
+            <ul class="menu-list">
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="orders.html">Orders</a></li>
+                <li><a href="products.html">Products</a></li>
+                <li><a href="collections.html">Collections</a></li>
+                <li><a href="navigation.html">Navigation</a></li>
+                <li class="active"><a href="announcements.html">Announcements</a></li>
+                <li><a href="pages.html">Pages</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div class="header">
+                <h1>Announcements</h1>
+                <button class="btn btn-primary" id="saveAnnouncementsBtn">Save Changes</button>
+            </div>
+
+            <!-- Live Preview Section -->
+            <div class="preview-container">
+                <p class="preview-label">Live Preview (texts will rotate)</p>
+                <div id="preview-bar" class="announcement-bar">
+                    <span id="preview-text">Your announcement will appear here!</span>
+                </div>
+            </div>
+            
+            <div class="content-card">
+                <div class="form-grid-2">
+                    <!-- Left Column: Content -->
+                    <div class="form-group">
+                        <label class="form-label">Announcement Texts</label>
+                        <div id="announcement-texts-container">
+                            <!-- Dynamic text inputs will be added here -->
+                        </div>
+                        <button class="btn" id="add-announcement-btn" style="margin-top: 10px;">
+                            <i class="fas fa-plus"></i> Add Announcement
+                        </button>
+                    </div>
+
+                    <!-- Right Column: Customization -->
+                    <div class="form-group">
+                        <label class="form-label">Customization</label>
+                        <div class="customization-grid">
+                            <div>
+                                <label for="backgroundColor" class="form-label-sm">Background Color</label>
+                                <input type="color" id="backgroundColor" class="color-picker" value="#2c3e50">
+                            </div>
+                            <div>
+                                <label for="textColor" class="form-label-sm">Text Color</label>
+                                <input type="color" id="textColor" class="color-picker" value="#ffffff">
+                            </div>
+                            <div>
+                                <label for="fontSize" class="form-label-sm">Font Size (px)</label>
+                                <input type="number" id="fontSize" class="form-control" value="14" min="10" max="24">
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="transparentBg">
+                                <label for="transparentBg">Transparent Background</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast-notification" class="toast"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKK4FmXtcMniVv6_5-mFPBJICwEM5Dkzc",
+            authDomain: "nasir-9102c.firebaseapp.com",
+            projectId: "nasir-9102c",
+            storageBucket: "nasir-9102c.firebasestorage.app",
+            messagingSenderId: "182224792140",
+            appId: "1:182224792140:web:42348e8b24f94cdf07e2e9"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- DOM Elements ---
+        const previewBar = document.getElementById('preview-bar');
+        const previewText = document.getElementById('preview-text');
+        const textsContainer = document.getElementById('announcement-texts-container');
+        const addBtn = document.getElementById('add-announcement-btn');
+        const backgroundColorPicker = document.getElementById('backgroundColor');
+        const textColorPicker = document.getElementById('textColor');
+        const fontSizeInput = document.getElementById('fontSize');
+        const transparentBgCheckbox = document.getElementById('transparentBg');
+        const saveBtn = document.getElementById('saveAnnouncementsBtn');
+        const toast = document.getElementById('toast-notification');
+        let previewInterval;
+
+        // --- Render Text Inputs ---
+        function renderTextInputs(texts = ['']) {
+            textsContainer.innerHTML = '';
+            texts.forEach(text => addTextInput(text));
+            updatePreview();
+        }
+
+        function addTextInput(text = '') {
+            const inputGroup = document.createElement('div');
+            inputGroup.className = 'input-group-dynamic';
+            inputGroup.innerHTML = `
+                <input type="text" class="form-control announcement-text-input" value="${text}" placeholder="Enter announcement text...">
+                <button class="btn-icon-danger remove-text-btn">&times;</button>
+            `;
+            textsContainer.appendChild(inputGroup);
+            inputGroup.querySelector('.announcement-text-input').addEventListener('input', updatePreview);
+            inputGroup.querySelector('.remove-text-btn').addEventListener('click', () => {
+                inputGroup.remove();
+                updatePreview();
+            });
+        }
+        
+        addBtn.addEventListener('click', () => addTextInput());
+
+        // --- Update Preview ---
+        function updatePreview() {
+            clearInterval(previewInterval); // Stop any existing animation
+
+            const textInputs = textsContainer.querySelectorAll('.announcement-text-input');
+            const texts = Array.from(textInputs).map(input => input.value.trim()).filter(text => text);
+            
+            const bgColor = backgroundColorPicker.value;
+            const textColor = textColorPicker.value;
+            const fontSize = fontSizeInput.value;
+            const isTransparent = transparentBgCheckbox.checked;
+
+            previewBar.style.color = textColor;
+            previewBar.style.fontSize = `${fontSize}px`;
+            previewBar.style.backgroundColor = isTransparent ? 'transparent' : bgColor;
+            previewBar.style.border = isTransparent ? '1px dashed #ccc' : 'none';
+
+            if (texts.length === 0) {
+                previewText.textContent = "Your announcement will appear here!";
+                return;
+            }
+
+            let currentIndex = 0;
+            previewText.textContent = texts[currentIndex];
+            
+            if (texts.length > 1) {
+                previewInterval = setInterval(() => {
+                    currentIndex = (currentIndex + 1) % texts.length;
+                    previewText.style.opacity = 0;
+                    setTimeout(() => {
+                        previewText.textContent = texts[currentIndex];
+                        previewText.style.opacity = 1;
+                    }, 500); // Half a second for fade out
+                }, 3000); // Change text every 3 seconds
+            }
+        }
+
+        // --- Event Listeners for Live Preview ---
+        [backgroundColorPicker, textColorPicker, fontSizeInput, transparentBgCheckbox].forEach(el => {
+            el.addEventListener('input', updatePreview);
+        });
+
+        // --- Load Settings from Firebase ---
+        async function loadSettings() {
+            const settingsRef = doc(db, "settings", "announcementBar");
+            const docSnap = await getDoc(settingsRef);
+
+            if (docSnap.exists()) {
+                const settings = docSnap.data();
+                renderTextInputs(settings.texts && settings.texts.length > 0 ? settings.texts : ['']);
+                backgroundColorPicker.value = settings.backgroundColor || '#2c3e50';
+                textColorPicker.value = settings.textColor || '#ffffff';
+                fontSizeInput.value = settings.fontSize || 14;
+                transparentBgCheckbox.checked = settings.isTransparent || false;
+            } else {
+                renderTextInputs(['']); // Render one empty input if no settings found
+            }
+            updatePreview();
+        }
+
+        // --- Save Settings to Firebase ---
+        saveBtn.addEventListener('click', async () => {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            const textInputs = textsContainer.querySelectorAll('.announcement-text-input');
+            const texts = Array.from(textInputs).map(input => input.value.trim()).filter(text => text);
+
+            const settingsData = {
+                texts: texts,
+                backgroundColor: backgroundColorPicker.value,
+                textColor: textColorPicker.value,
+                fontSize: parseInt(fontSizeInput.value),
+                isTransparent: transparentBgCheckbox.checked
+            };
+
+            try {
+                await setDoc(doc(db, "settings", "announcementBar"), settingsData);
+                showToast("Announcements saved successfully!");
+            } catch (error) {
+                console.error("Error saving settings: ", error);
+                showToast("Error: Could not save settings.");
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Changes';
+            }
+        });
+
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', loadSettings);
+    </script>
+</body>
+</html>
