@@ -11,7 +11,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#ffffff">
     <link rel="icon" type="image/png" href="logo.png">
-    <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIlN0b3JlIE1hbmFnZXIiLAogICJzaG9ydF9uYW1lIjogIkludmVudG9yeSIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjZmZmZmZmIiwKICAidGhlbWVfY29sb3IiOiAiIzE2YTM0YSIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImxvZ28ucG5nIiwKICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciCiAgICB9CiAgXQp9">
+    <link rel="apple-touch-icon" href="logo.png">
+    
+    <!-- Base64 Manifest for PWA -->
+    <link rel="manifest" id="manifest-placeholder">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -19,7 +22,7 @@
     <style>
         body { background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
         
-        .retro-img-container { aspect-ratio: 3:2; overflow: hidden; background-color: #e2e8f0; cursor: pointer; position: relative; }
+        .retro-img-container { aspect-ratio: 3 / 2; overflow: hidden; background-color: #e2e8f0; cursor: pointer; position: relative; }
         .retro-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
         .product-card:hover .retro-img { transform: scale(1.05); }
         .retro-img-container::after { content: '\f00e'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; opacity: 0; transition: opacity 0.3s ease; text-shadow: 0 2px 4px rgba(0,0,0,0.5); pointer-events: none; }
@@ -65,6 +68,24 @@
             'banani': '222',
             'uttara': '333'
         };
+
+        // --- PWA MANIFEST INJECTION ---
+        const manifest = {
+            "name": "Store Manager",
+            "short_name": "Inventory",
+            "start_url": window.location.href, // Dynamic Start URL
+            "display": "standalone",
+            "background_color": "#ffffff",
+            "theme_color": "#16a34a",
+            "icons": [
+                { "src": "logo.png", "sizes": "192x192", "type": "image/png" },
+                { "src": "logo.png", "sizes": "512x512", "type": "image/png" }
+            ]
+        };
+        const stringManifest = JSON.stringify(manifest);
+        const blob = new Blob([stringManifest], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(blob);
+        document.querySelector('#manifest-placeholder').setAttribute('href', manifestURL);
     </script>
 
     <!-- LOGIN OVERLAY -->
@@ -153,7 +174,7 @@
                 <!-- Search Input (Flex Grow) -->
                 <div class="relative flex-1 min-w-0">
                     <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400 text-xs"></i>
-                    <input type="text" id="searchInput" placeholder="Search..." class="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <input type="text" id="searchInput" placeholder="Search..." class="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs font-medium focus:outline-none focus:border-green-500">
                 </div>
             </div>
         </div>
@@ -181,6 +202,8 @@
                 <div class="text-green-600 text-5xl mb-4"><i class="fa-solid fa-boxes-stacked"></i></div>
                 <h2 class="text-xl font-bold text-gray-700 mb-2">Inventory Ready</h2>
                 <p class="text-sm text-gray-500">Select a collection or search to begin.</p>
+                <!-- Install Button Placeholder (Visible only if installable) -->
+                <button id="installAppBtn" class="hidden mt-6 bg-gray-900 text-white text-xs px-4 py-2 rounded-full mx-auto"><i class="fa-solid fa-download mr-1"></i> Install App</button>
             </div>
         </div>
 
@@ -189,7 +212,7 @@
             <p id="loadingText" class="text-xs text-gray-500 mt-2">Loading...</p>
         </div>
 
-        <!-- Product Grid: 2 cols mobile, 5 cols desktop -->
+        <!-- Product Grid -->
         <div id="productGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 hidden"></div>
         
         <!-- LOAD MORE BUTTON -->
@@ -227,18 +250,67 @@
 
     <script>
         let products = [];
-        let collectionsList = []; // Store collections for search
+        let collectionsList = [];
         let currentStore = null;
         let currentCollectionName = ''; 
         let currentEditingProductId = null;
         let searchDebounceTimer = null;
         let lastCursor = null; 
         let hasMoreProducts = false;
-        let selectedCollectionId = ""; // Track custom dropdown value
+        let selectedCollectionId = "";
 
+        // --- PWA SERVICE WORKER REGISTRATION (Inline) ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Create a dummy service worker to satisfy PWA requirements
+                const swCode = `
+                    self.addEventListener('install', (e) => { e.waitUntil(self.skipWaiting()); });
+                    self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
+                    self.addEventListener('fetch', (e) => { 
+                        // Passthrough fetch
+                    });
+                `;
+                const blob = new Blob([swCode], {type: 'application/javascript'});
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl)
+                    .then(reg => console.log('SW Registered', reg))
+                    .catch(err => console.log('SW Failed', err));
+            });
+        }
+
+        // --- INSTALL PROMPT LOGIC ---
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const btn = document.getElementById('installAppBtn');
+            btn.classList.remove('hidden');
+            btn.addEventListener('click', () => {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((result) => {
+                    if (result.outcome === 'accepted') {
+                        btn.classList.add('hidden');
+                    }
+                    deferredPrompt = null;
+                });
+            });
+        });
+
+        // --- AUTH & PERSISTENCE ---
         const loginStoreSelect = document.getElementById('loginStoreSelect');
         const passwordFieldWrapper = document.getElementById('passwordFieldWrapper');
         const loginBtn = document.getElementById('loginBtn');
+
+        // Check Local Storage on Load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedStore = localStorage.getItem('storeUser');
+            if (savedStore && STORE_CREDENTIALS[savedStore]) {
+                currentStore = savedStore;
+                document.getElementById('displayStoreName').innerText = currentStore;
+                document.getElementById('loginOverlay').style.display = 'none';
+                loadInitialData(); // Load data immediately
+            }
+        });
 
         loginStoreSelect.addEventListener('change', function() {
             if(this.value) { passwordFieldWrapper.classList.remove('hidden'); loginBtn.disabled = false; }
@@ -248,6 +320,9 @@
             const selectedStore = loginStoreSelect.value;
             const password = document.getElementById('loginPassword').value;
             if (password === STORE_CREDENTIALS[selectedStore]) {
+                // Save to Local Storage
+                localStorage.setItem('storeUser', selectedStore);
+                
                 currentStore = selectedStore;
                 document.getElementById('displayStoreName').innerText = currentStore;
                 document.getElementById('loginOverlay').style.display = 'none';
@@ -255,7 +330,11 @@
             } else { document.getElementById('loginError').classList.remove('hidden'); }
         }
 
-        function logout() { location.reload(); }
+        function logout() { 
+            // Clear Local Storage
+            localStorage.removeItem('storeUser');
+            location.reload(); 
+        }
 
         // --- DATA FETCHING ---
         async function loadInitialData() {
@@ -265,10 +344,7 @@
                 const data = await response.json();
 
                 if(data.status === 'success') {
-                    // Sort Collections A-Z
                     collectionsList = data.collections.sort((a, b) => a.title.localeCompare(b.title));
-                    
-                    // Populate Custom Dropdown
                     populateCustomDropdown(collectionsList);
 
                     if (data.notifications && data.notifications.length > 0) {
@@ -300,15 +376,11 @@
                 const data = await response.json();
 
                 if(data.status === 'success') {
-                    if (cursor) {
-                        products = products.concat(data.products);
-                    } else {
-                        products = data.products;
-                    }
+                    if (cursor) { products = products.concat(data.products); } 
+                    else { products = data.products; }
                     
                     lastCursor = data.pageInfo.endCursor;
                     hasMoreProducts = data.pageInfo.hasNextPage;
-                    
                     renderProducts();
                 } else {
                     if(!cursor) { products = []; renderProducts(); }
@@ -320,12 +392,10 @@
             }
         }
 
-        // --- CUSTOM DROPDOWN LOGIC ---
+        // --- CUSTOM DROPDOWN ---
         function populateCustomDropdown(list) {
             const container = document.getElementById('dropdownListContainer');
             container.innerHTML = '';
-            
-            // Add "All" option (equivalent to reset)
             const allOpt = document.createElement('div');
             allOpt.className = 'option';
             allOpt.innerText = 'All Collections';
@@ -354,11 +424,7 @@
             const options = document.querySelectorAll('.custom-options .option');
             options.forEach(opt => {
                 const txt = opt.innerText.toLowerCase();
-                if(txt.includes(filter)) {
-                    opt.style.display = "";
-                } else {
-                    opt.style.display = "none";
-                }
+                opt.style.display = txt.includes(filter) ? "" : "none";
             });
         }
 
@@ -367,43 +433,30 @@
             currentCollectionName = title;
             document.getElementById('dropdownSelectedText').innerText = title;
             document.getElementById('dropdownOptions').classList.remove('open');
-            document.getElementById('dropdownSearchInput').value = ''; // Reset search
-            filterDropdownOptions(); // Reset list visibility
+            document.getElementById('dropdownSearchInput').value = ''; 
+            filterDropdownOptions(); 
             
-            // Trigger Search Logic
             lastCursor = null; 
-            if(id) {
-                performSearch(null, id);
-            } else {
-                clearFilters(); // If 'All Collections' selected
-            }
+            if(id) { performSearch(null, id); } else { clearFilters(); }
         }
 
-        // Close dropdown when clicking outside
         document.addEventListener('click', function(e) {
             const wrapper = document.getElementById('customDropdown');
-            if (!wrapper.contains(e.target)) {
-                document.getElementById('dropdownOptions').classList.remove('open');
-            }
+            if (!wrapper.contains(e.target)) { document.getElementById('dropdownOptions').classList.remove('open'); }
         });
 
-        // --- NEW FEATURES ---
-        
+        // --- HELPER & UI ---
         function clearFilters() {
             document.getElementById('searchInput').value = '';
             selectedCollectionId = "";
             currentCollectionName = "";
             document.getElementById('dropdownSelectedText').innerText = "Select Collection";
-            
-            products = [];
-            lastCursor = null;
-            hasMoreProducts = false;
+            products = []; lastCursor = null; hasMoreProducts = false;
             
             document.getElementById('productGrid').classList.add('hidden');
             document.getElementById('statsBar').classList.add('hidden');
             document.getElementById('emptyState').classList.add('hidden');
             document.getElementById('loadMoreContainer').classList.add('hidden');
-            
             document.getElementById('initialState').classList.remove('hidden');
             showToast("Reset");
         }
@@ -415,25 +468,16 @@
             }
         }
 
-        // --- UI HELPERS ---
         function toggleLoading(show, text = "Loading...") {
             const loader = document.getElementById('loadingState');
             const grid = document.getElementById('productGrid');
             const empty = document.getElementById('emptyState');
             const stats = document.getElementById('statsBar');
-            
             document.getElementById('loadingText').innerText = text;
-            
             if(show) {
                 loader.classList.remove('hidden');
-                if(!lastCursor) {
-                    grid.classList.add('hidden');
-                    empty.classList.add('hidden');
-                    stats.classList.add('hidden');
-                }
-            } else {
-                loader.classList.add('hidden');
-            }
+                if(!lastCursor) { grid.classList.add('hidden'); empty.classList.add('hidden'); stats.classList.add('hidden'); }
+            } else { loader.classList.add('hidden'); }
         }
 
         function renderProducts() {
@@ -448,10 +492,7 @@
             countSpan.innerText = products.length;
 
             if (products.length === 0) {
-                emptyState.classList.remove('hidden');
-                grid.classList.add('hidden');
-                loadMoreBtn.classList.add('hidden');
-                return;
+                emptyState.classList.remove('hidden'); grid.classList.add('hidden'); loadMoreBtn.classList.add('hidden'); return;
             } 
             emptyState.classList.add('hidden');
             grid.classList.remove('hidden');
@@ -495,14 +536,10 @@
                 grid.appendChild(card);
             });
 
-            if (hasMoreProducts) {
-                loadMoreBtn.classList.remove('hidden');
-            } else {
-                loadMoreBtn.classList.add('hidden');
-            }
+            if (hasMoreProducts) { loadMoreBtn.classList.remove('hidden'); } else { loadMoreBtn.classList.add('hidden'); }
         }
 
-        // --- REUSED FUNCTIONS ---
+        // --- COMMON LOGIC ---
         function getProductStatus(product) {
             const status = product.status ? product.status.toUpperCase() : 'DRAFT';
             let totalShopifyStock = 0;
@@ -517,9 +554,7 @@
             const inputs = document.querySelectorAll('#modalVariantsContainer input');
             const saveBtn = document.getElementById('saveBtn');
             const originalText = document.getElementById('saveBtnText').innerText;
-            saveBtn.disabled = true;
-            document.getElementById('saveBtnText').innerText = "Syncing...";
-            saveBtn.classList.add('opacity-75');
+            saveBtn.disabled = true; document.getElementById('saveBtnText').innerText = "Syncing..."; saveBtn.classList.add('opacity-75');
 
             try {
                 for (const input of inputs) {
@@ -534,9 +569,7 @@
                     };
                     await sendUpdateToBackend(payload);
                 }
-                showToast("Updated!");
-                renderProducts();
-                closeModal();
+                showToast("Updated!"); renderProducts(); closeModal();
             } catch (error) { alert("Update Failed: " + error.message); } 
             finally { saveBtn.disabled = false; document.getElementById('saveBtnText').innerText = originalText; saveBtn.classList.remove('opacity-75'); }
         }
@@ -558,7 +591,6 @@
              }
         }
 
-        // ... Helpers ...
         function openModal(productId) {
             const product = products.find(p => p.id == productId);
             if (!product) return;
