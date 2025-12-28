@@ -63,31 +63,30 @@
         // *** IMPORTANT: REPLACE WITH NEW DEPLOYMENT URL ***
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzZLIADFPhsYJW8wABKi3CGBvoRklmMAD5QMZJVntCoJBeJVT7JCKQrZbJ7vehVZII/exec";
         
-        // ADDED ADMIN CREDENTIALS
-        const STORE_CREDENTIALS = {
-            'admin': '61983',
-            'dhanmondi': '111',
-            'banani': '222',
-            'uttara': '333'
-        };
-
         // --- PWA MANIFEST INJECTION ---
-        const manifest = {
-            "name": "Store Manager",
-            "short_name": "Inventory",
-            "start_url": window.location.href, // Dynamic Start URL
-            "display": "standalone",
-            "background_color": "#ffffff",
-            "theme_color": "#16a34a",
-            "icons": [
-                { "src": "logo.png", "sizes": "192x192", "type": "image/png" },
-                { "src": "logo.png", "sizes": "512x512", "type": "image/png" }
-            ]
-        };
-        const stringManifest = JSON.stringify(manifest);
-        const blob = new Blob([stringManifest], {type: 'application/json'});
-        const manifestURL = URL.createObjectURL(blob);
-        document.querySelector('#manifest-placeholder').setAttribute('href', manifestURL);
+        // Wrapped in event listener to ensure DOM is ready before accessing #manifest-placeholder
+        window.addEventListener('DOMContentLoaded', () => {
+            const manifest = {
+                "name": "Store Manager",
+                "short_name": "Inventory",
+                "start_url": window.location.href, // Dynamic Start URL
+                "display": "standalone",
+                "background_color": "#ffffff",
+                "theme_color": "#16a34a",
+                "icons": [
+                    { "src": "logo.png", "sizes": "192x192", "type": "image/png" },
+                    { "src": "logo.png", "sizes": "512x512", "type": "image/png" }
+                ]
+            };
+            const stringManifest = JSON.stringify(manifest);
+            const blob = new Blob([stringManifest], {type: 'application/json'});
+            const manifestURL = URL.createObjectURL(blob);
+            
+            const linkTag = document.querySelector('#manifest-placeholder');
+            if (linkTag) {
+                linkTag.setAttribute('href', manifestURL);
+            }
+        });
     </script>
 
     <!-- LOGIN OVERLAY -->
@@ -103,7 +102,6 @@
                 <div class="space-y-4">
                     <select id="loginStoreSelect" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500">
                         <option value="" disabled selected>Select Your Store</option>
-                        <!-- Added Admin Option at the top -->
                         <option value="admin">Admin</option>
                         <option value="dhanmondi">Dhanmondi Store</option>
                         <option value="banani">Banani Store</option>
@@ -112,7 +110,9 @@
                     <div id="passwordFieldWrapper" class="hidden">
                         <input type="password" id="loginPassword" placeholder="Enter Store Password" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500">
                     </div>
-                    <button id="loginBtn" onclick="attemptLogin()" class="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50" disabled>Access Dashboard</button>
+                    <button id="loginBtn" onclick="attemptLogin()" class="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2" disabled>
+                        <span>Access Dashboard</span>
+                    </button>
                     <p id="loginError" class="text-red-500 text-xs mt-2 hidden text-center">Incorrect password</p>
                 </div>
             </div>
@@ -266,13 +266,10 @@
         // --- PWA SERVICE WORKER REGISTRATION (Inline) ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                // Create a dummy service worker to satisfy PWA requirements
                 const swCode = `
                     self.addEventListener('install', (e) => { e.waitUntil(self.skipWaiting()); });
                     self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
-                    self.addEventListener('fetch', (e) => { 
-                        // Passthrough fetch
-                    });
+                    self.addEventListener('fetch', (e) => { });
                 `;
                 const blob = new Blob([swCode], {type: 'application/javascript'});
                 const swUrl = URL.createObjectURL(blob);
@@ -282,7 +279,6 @@
             });
         }
 
-        // --- INSTALL PROMPT LOGIC ---
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
@@ -292,9 +288,7 @@
             btn.addEventListener('click', () => {
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((result) => {
-                    if (result.outcome === 'accepted') {
-                        btn.classList.add('hidden');
-                    }
+                    if (result.outcome === 'accepted') { btn.classList.add('hidden'); }
                     deferredPrompt = null;
                 });
             });
@@ -305,14 +299,14 @@
         const passwordFieldWrapper = document.getElementById('passwordFieldWrapper');
         const loginBtn = document.getElementById('loginBtn');
 
-        // Check Local Storage on Load
         window.addEventListener('DOMContentLoaded', () => {
             const savedStore = localStorage.getItem('storeUser');
-            if (savedStore && STORE_CREDENTIALS[savedStore]) {
+            // Check persistence without local password logic
+            if (savedStore) {
                 currentStore = savedStore;
                 document.getElementById('displayStoreName').innerText = currentStore;
                 document.getElementById('loginOverlay').style.display = 'none';
-                loadInitialData(); // Load data immediately
+                loadInitialData(); 
             }
         });
 
@@ -320,25 +314,49 @@
             if(this.value) { passwordFieldWrapper.classList.remove('hidden'); loginBtn.disabled = false; }
         });
 
-        function attemptLogin() {
+        async function attemptLogin() {
             const selectedStore = loginStoreSelect.value;
             const password = document.getElementById('loginPassword').value;
-            if (password === STORE_CREDENTIALS[selectedStore]) {
-                // Save to Local Storage
-                localStorage.setItem('storeUser', selectedStore);
-                
-                currentStore = selectedStore;
-                document.getElementById('displayStoreName').innerText = currentStore;
-                document.getElementById('loginOverlay').style.display = 'none';
-                loadInitialData(); 
-            } else { document.getElementById('loginError').classList.remove('hidden'); }
+            const btn = document.getElementById('loginBtn');
+            
+            // UI Loading State
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Checking...`;
+            document.getElementById('loginError').classList.add('hidden');
+
+            try {
+                // Verify with Backend
+                const response = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'login',
+                        store: selectedStore,
+                        password: password
+                    })
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    // Success
+                    localStorage.setItem('storeUser', selectedStore);
+                    currentStore = selectedStore;
+                    document.getElementById('displayStoreName').innerText = currentStore;
+                    document.getElementById('loginOverlay').style.display = 'none';
+                    loadInitialData();
+                } else {
+                    // Fail
+                    document.getElementById('loginError').classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.innerHTML = `<span>Access Dashboard</span>`;
+                }
+            } catch (error) {
+                alert("Login Error: " + error.message);
+                btn.disabled = false;
+                btn.innerHTML = `<span>Access Dashboard</span>`;
+            }
         }
 
-        function logout() { 
-            // Clear Local Storage
-            localStorage.removeItem('storeUser');
-            location.reload(); 
-        }
+        function logout() { localStorage.removeItem('storeUser'); location.reload(); }
 
         // --- DATA FETCHING ---
         async function loadInitialData() {
