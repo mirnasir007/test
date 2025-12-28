@@ -64,7 +64,7 @@
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzZLIADFPhsYJW8wABKi3CGBvoRklmMAD5QMZJVntCoJBeJVT7JCKQrZbJ7vehVZII/exec";
         
         // --- PWA MANIFEST INJECTION ---
-        // Wrapped in event listener to ensure DOM is ready before accessing #manifest-placeholder
+        // Wrapped in event listener to ensure DOM is ready
         window.addEventListener('DOMContentLoaded', () => {
             const manifest = {
                 "name": "Store Manager",
@@ -263,22 +263,7 @@
         let hasMoreProducts = false;
         let selectedCollectionId = "";
 
-        // --- PWA SERVICE WORKER REGISTRATION (Inline) ---
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                const swCode = `
-                    self.addEventListener('install', (e) => { e.waitUntil(self.skipWaiting()); });
-                    self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
-                    self.addEventListener('fetch', (e) => { });
-                `;
-                const blob = new Blob([swCode], {type: 'application/javascript'});
-                const swUrl = URL.createObjectURL(blob);
-                navigator.serviceWorker.register(swUrl)
-                    .then(reg => console.log('SW Registered', reg))
-                    .catch(err => console.log('SW Failed', err));
-            });
-        }
-
+        // --- PWA LOGIC UPDATED TO PREVENT ERRORS ---
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
@@ -288,7 +273,9 @@
             btn.addEventListener('click', () => {
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((result) => {
-                    if (result.outcome === 'accepted') { btn.classList.add('hidden'); }
+                    if (result.outcome === 'accepted') {
+                        btn.classList.add('hidden');
+                    }
                     deferredPrompt = null;
                 });
             });
@@ -356,27 +343,82 @@
             }
         }
 
-        function logout() { localStorage.removeItem('storeUser'); location.reload(); }
+        function logout() { 
+            // Clear Local Storage
+            localStorage.removeItem('storeUser');
+            location.reload(); 
+        }
 
-        // --- DATA FETCHING ---
+        // --- FAST UPDATE LOGIC (OPTIMISTIC UI) ---
+        async function saveInventoryChanges() {
+            if (!currentEditingProductId) return;
+            const product = products.find(p => p.id == currentEditingProductId);
+            const inputs = document.querySelectorAll('#modalVariantsContainer input');
+            
+            // 1. UPDATE LOCALLY (INSTANT)
+            let updates = [];
+            let totalShopifyStock = 0; // Recalculate total for UI update
+
+            inputs.forEach(input => {
+                const variantId = input.getAttribute('data-variant-id');
+                const inventoryItemId = input.getAttribute('data-inventory-item-id');
+                const newQty = parseInt(input.value) || 0;
+                
+                const variant = product.variants.find(v => v.id == variantId);
+                
+                // Update local model
+                variant.inventory[currentStore] = newQty; 
+                
+                // Prepare API Payload
+                updates.push({
+                    productId: product.id,
+                    variantId: variantId,
+                    inventoryItemId: inventoryItemId,
+                    store: currentStore,
+                    quantity: newQty,
+                    otherStoresData: variant.inventory
+                });
+            });
+
+            // 2. CLOSE MODAL & SHOW SUCCESS
+            closeModal();
+            renderProducts(); // Refresh grid numbers instantly
+            showToast("Syncing in background...");
+
+            // 3. SEND TO SERVER (BACKGROUND)
+            try {
+                // Send all requests in parallel
+                const promises = updates.map(payload => {
+                    payload.action = 'updateInventory';
+                    payload.collectionName = currentCollectionName;
+                    return fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+                });
+
+                await Promise.all(promises);
+                
+                // 4. FINAL CONFIRMATION
+                showToast("Update Complete!");
+                
+            } catch (error) {
+                console.error(error);
+                alert("Background Sync Failed! Please reload page.");
+            }
+        }
+
+        // --- DATA & UI FUNCTIONS ---
         async function loadInitialData() {
             toggleLoading(true, "Loading...");
             try {
                 const response = await fetch(`${WEB_APP_URL}?action=getInitialData&store=${currentStore}`);
                 const data = await response.json();
-
                 if(data.status === 'success') {
                     collectionsList = data.collections.sort((a, b) => a.title.localeCompare(b.title));
                     populateCustomDropdown(collectionsList);
-
-                    if (data.notifications && data.notifications.length > 0) {
-                        renderNotifications(data.notifications);
-                    }
-                    
+                    if (data.notifications && data.notifications.length > 0) renderNotifications(data.notifications);
                     document.getElementById('initialState').classList.remove('hidden');
                     document.getElementById('loadingState').classList.add('hidden');
                 }
-            } catch (e) { console.error(e); alert("Failed to load initial data"); toggleLoading(false); }
+            } catch (e) { console.error(e); toggleLoading(false); }
         }
 
         async function performSearch(query, collectionId, cursor = null) {
@@ -400,7 +442,6 @@
                 if(data.status === 'success') {
                     if (cursor) { products = products.concat(data.products); } 
                     else { products = data.products; }
-                    
                     lastCursor = data.pageInfo.endCursor;
                     hasMoreProducts = data.pageInfo.hasNextPage;
                     renderProducts();
@@ -414,67 +455,45 @@
             }
         }
 
-        // --- CUSTOM DROPDOWN ---
+        // --- DROPDOWN & UI HELPERS ---
         function populateCustomDropdown(list) {
             const container = document.getElementById('dropdownListContainer');
             container.innerHTML = '';
             const allOpt = document.createElement('div');
-            allOpt.className = 'option';
-            allOpt.innerText = 'All Collections';
-            allOpt.onclick = () => selectCollection('', 'Select Collection');
+            allOpt.className = 'option'; allOpt.innerText = 'All Collections'; allOpt.onclick = () => selectCollection('', 'Select Collection');
             container.appendChild(allOpt);
-
             list.forEach(col => {
                 const div = document.createElement('div');
-                div.className = 'option';
-                div.innerText = col.title;
-                div.dataset.value = col.id;
+                div.className = 'option'; div.innerText = col.title; div.dataset.value = col.id;
                 div.onclick = () => selectCollection(col.id, col.title);
                 container.appendChild(div);
             });
         }
-
         function toggleDropdown() {
             document.getElementById('dropdownOptions').classList.toggle('open');
-            if(document.getElementById('dropdownOptions').classList.contains('open')) {
-                document.getElementById('dropdownSearchInput').focus();
-            }
+            if(document.getElementById('dropdownOptions').classList.contains('open')) document.getElementById('dropdownSearchInput').focus();
         }
-
         function filterDropdownOptions() {
             const filter = document.getElementById('dropdownSearchInput').value.toLowerCase();
             const options = document.querySelectorAll('.custom-options .option');
-            options.forEach(opt => {
-                const txt = opt.innerText.toLowerCase();
-                opt.style.display = txt.includes(filter) ? "" : "none";
-            });
+            options.forEach(opt => { opt.style.display = opt.innerText.toLowerCase().includes(filter) ? "" : "none"; });
         }
-
         function selectCollection(id, title) {
-            selectedCollectionId = id;
-            currentCollectionName = title;
+            selectedCollectionId = id; currentCollectionName = title;
             document.getElementById('dropdownSelectedText').innerText = title;
             document.getElementById('dropdownOptions').classList.remove('open');
-            document.getElementById('dropdownSearchInput').value = ''; 
-            filterDropdownOptions(); 
-            
-            lastCursor = null; 
-            if(id) { performSearch(null, id); } else { clearFilters(); }
+            document.getElementById('dropdownSearchInput').value = ''; filterDropdownOptions();
+            lastCursor = null; if(id) { performSearch(null, id); } else { clearFilters(); }
         }
-
         document.addEventListener('click', function(e) {
             const wrapper = document.getElementById('customDropdown');
             if (!wrapper.contains(e.target)) { document.getElementById('dropdownOptions').classList.remove('open'); }
         });
 
-        // --- HELPER & UI ---
         function clearFilters() {
-            document.getElementById('searchInput').value = '';
-            selectedCollectionId = "";
-            currentCollectionName = "";
+            document.getElementById('searchInput').value = ''; selectedCollectionId = ""; currentCollectionName = "";
             document.getElementById('dropdownSelectedText').innerText = "Select Collection";
             products = []; lastCursor = null; hasMoreProducts = false;
-            
             document.getElementById('productGrid').classList.add('hidden');
             document.getElementById('statsBar').classList.add('hidden');
             document.getElementById('emptyState').classList.add('hidden');
@@ -482,14 +501,12 @@
             document.getElementById('initialState').classList.remove('hidden');
             showToast("Reset");
         }
-
         function loadMoreProducts() {
             if (hasMoreProducts && lastCursor) {
                 const query = document.getElementById('searchInput').value;
                 performSearch(query, selectedCollectionId, lastCursor);
             }
         }
-
         function toggleLoading(show, text = "Loading...") {
             const loader = document.getElementById('loadingState');
             const grid = document.getElementById('productGrid');
@@ -501,24 +518,15 @@
                 if(!lastCursor) { grid.classList.add('hidden'); empty.classList.add('hidden'); stats.classList.add('hidden'); }
             } else { loader.classList.add('hidden'); }
         }
-
         function renderProducts() {
             const grid = document.getElementById('productGrid');
             const emptyState = document.getElementById('emptyState');
             const statsBar = document.getElementById('statsBar');
             const countSpan = document.getElementById('productCount');
             const loadMoreBtn = document.getElementById('loadMoreContainer');
-
-            statsBar.classList.remove('hidden');
-            grid.innerHTML = '';
-            countSpan.innerText = products.length;
-
-            if (products.length === 0) {
-                emptyState.classList.remove('hidden'); grid.classList.add('hidden'); loadMoreBtn.classList.add('hidden'); return;
-            } 
-            emptyState.classList.add('hidden');
-            grid.classList.remove('hidden');
-
+            statsBar.classList.remove('hidden'); grid.innerHTML = ''; countSpan.innerText = products.length;
+            if (products.length === 0) { emptyState.classList.remove('hidden'); grid.classList.add('hidden'); loadMoreBtn.classList.add('hidden'); return; } 
+            emptyState.classList.add('hidden'); grid.classList.remove('hidden');
             products.forEach(product => {
                 const info = getProductStatus(product);
                 const mainSku = product.variants[0]?.sku || 'N/A';
@@ -526,42 +534,20 @@
                 if(product.variants.length > 0) {
                     variantBreakdownHtml = '<div class="flex flex-wrap gap-1 mt-1.5">';
                     product.variants.forEach(v => {
-                         const totalVarStock = v.actualShopifyStock || 0;
+                         const totalVarStock = v.actualShopifyStock || 0; // Display real shopify stock
                          const displayName = v.title.replace('Size ', '').replace(' / ', '-').substring(0, 10);
                          const color = totalVarStock > 0 ? 'text-gray-700 font-medium bg-gray-100' : 'text-gray-400 bg-gray-50';
                          variantBreakdownHtml += `<span class="text-[10px] px-1.5 py-0.5 rounded border border-gray-100 ${color}">${displayName}: ${totalVarStock}</span>`;
                     });
                     variantBreakdownHtml += '</div>';
                 }
-
                 const card = document.createElement('div');
                 card.className = 'product-card bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group flex flex-col h-full';
-                card.innerHTML = `
-                    <div class="retro-img-container relative" onclick="openImagePreview('${product.image}', '${product.title.replace(/'/g, "\\'")}')">
-                        <img src="${product.image}" class="retro-img" onerror="this.src='https://via.placeholder.com/300?text=No+Image'">
-                        <div class="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border shadow-sm ${info.colorClass}">${info.status}</div>
-                    </div>
-                    <div class="p-3 flex flex-col flex-grow">
-                        <div class="flex justify-between items-start mb-1">
-                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">${product.type || 'Product'}</span>
-                            <span class="text-[10px] text-gray-400 font-mono">SKU: ${mainSku}</span>
-                        </div>
-                        <h3 class="font-bold text-gray-800 text-sm leading-tight mb-2 line-clamp-2">${product.title}</h3>
-                        <div class="mt-auto">
-                            <p class="text-xs text-gray-500 font-semibold">Total: ${info.totalStock}</p>
-                            ${variantBreakdownHtml}
-                            <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100">
-                                <button onclick="openModal('${product.id}')" class="flex-1 bg-gray-900 text-white text-xs font-bold uppercase tracking-wide py-2 rounded hover:bg-gray-700 transition-colors">Manage</button>
-                            </div>
-                        </div>
-                    </div>`;
+                card.innerHTML = `<div class="retro-img-container relative" onclick="openImagePreview('${product.image}', '${product.title.replace(/'/g, "\\'")}')"><img src="${product.image}" class="retro-img" onerror="this.src='https://via.placeholder.com/300?text=No+Image'"><div class="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border shadow-sm ${info.colorClass}">${info.status}</div></div><div class="p-3 flex flex-col flex-grow"><div class="flex justify-between items-start mb-1"><span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">${product.type || 'Product'}</span><span class="text-[10px] text-gray-400 font-mono">SKU: ${mainSku}</span></div><h3 class="font-bold text-gray-800 text-sm leading-tight mb-2 line-clamp-2">${product.title}</h3><div class="mt-auto"><p class="text-xs text-gray-500 font-semibold">Total: ${info.totalStock}</p>${variantBreakdownHtml}<div class="flex gap-2 mt-3 pt-3 border-t border-gray-100"><button onclick="openModal('${product.id}')" class="flex-1 bg-gray-900 text-white text-xs font-bold uppercase tracking-wide py-2 rounded hover:bg-gray-700 transition-colors">Manage</button></div></div></div>`;
                 grid.appendChild(card);
             });
-
             if (hasMoreProducts) { loadMoreBtn.classList.remove('hidden'); } else { loadMoreBtn.classList.add('hidden'); }
         }
-
-        // --- COMMON LOGIC ---
         function getProductStatus(product) {
             const status = product.status ? product.status.toUpperCase() : 'DRAFT';
             let totalShopifyStock = 0;
@@ -569,50 +555,8 @@
             const colorClass = status === 'ACTIVE' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200';
             return { totalStock: totalShopifyStock, status, colorClass };
         }
-
-        async function saveInventoryChanges() {
-            if (!currentEditingProductId) return;
-            const product = products.find(p => p.id == currentEditingProductId);
-            const inputs = document.querySelectorAll('#modalVariantsContainer input');
-            const saveBtn = document.getElementById('saveBtn');
-            const originalText = document.getElementById('saveBtnText').innerText;
-            saveBtn.disabled = true; document.getElementById('saveBtnText').innerText = "Syncing..."; saveBtn.classList.add('opacity-75');
-
-            try {
-                for (const input of inputs) {
-                    const variantId = input.getAttribute('data-variant-id');
-                    const inventoryItemId = input.getAttribute('data-inventory-item-id');
-                    const newQty = parseInt(input.value) || 0;
-                    const variant = product.variants.find(v => v.id == variantId);
-                    const payload = {
-                        action: 'updateInventory', productId: product.id, variantId: variantId,
-                        inventoryItemId: inventoryItemId, store: currentStore, quantity: newQty,
-                        otherStoresData: variant.inventory, collectionName: currentCollectionName
-                    };
-                    await sendUpdateToBackend(payload);
-                }
-                showToast("Updated!"); renderProducts(); closeModal();
-            } catch (error) { alert("Update Failed: " + error.message); } 
-            finally { saveBtn.disabled = false; document.getElementById('saveBtnText').innerText = originalText; saveBtn.classList.remove('opacity-75'); }
-        }
-
-        async function sendUpdateToBackend(payload) {
-             const response = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
-             const data = await response.json();
-             if(data.status === 'success') {
-                 updateLocalProductData(payload.productId, payload.variantId, payload.quantity, data.newStatus);
-             } else { throw new Error(data.message); }
-        }
-
-        function updateLocalProductData(productId, variantId, newQty, newStatus) {
-             const product = products.find(p => p.id == productId);
-             if(product) {
-                 const variant = product.variants.find(v => v.id == variantId);
-                 if(variant) variant.inventory[currentStore] = newQty;
-                 product.status = newStatus.toUpperCase(); 
-             }
-        }
-
+        
+        // --- MODAL & HELPERS ---
         function openModal(productId) {
             const product = products.find(p => p.id == productId);
             if (!product) return;
@@ -625,13 +569,7 @@
                 const currentStock = variant.inventory[currentStore] || 0;
                 const div = document.createElement('div');
                 div.className = 'flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100 mb-3 last:mb-0';
-                div.innerHTML = `
-                    <div class="flex-1 min-w-0 pr-2"><p class="font-semibold text-gray-700 text-xs truncate">${variant.title}</p><p class="text-[10px] text-gray-400 font-mono truncate">${variant.sku}</p></div>
-                    <div class="flex items-center gap-2">
-                        <button onclick="adjustInput('input-${variant.id}', -1)" class="w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100 text-gray-600"><i class="fa-solid fa-minus text-[10px]"></i></button>
-                        <input type="number" id="input-${variant.id}" value="${currentStock}" min="0" class="w-12 text-center font-bold text-gray-800 bg-white border border-gray-300 rounded py-1 text-sm focus:ring-2 focus:ring-blue-500 outline-none" data-variant-id="${variant.id}" data-inventory-item-id="${variant.inventoryItemId}">
-                        <button onclick="adjustInput('input-${variant.id}', 1)" class="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800"><i class="fa-solid fa-plus text-[10px]"></i></button>
-                    </div>`;
+                div.innerHTML = `<div class="flex-1 min-w-0 pr-2"><p class="font-semibold text-gray-700 text-xs truncate">${variant.title}</p><p class="text-[10px] text-gray-400 font-mono truncate">${variant.sku}</p></div><div class="flex items-center gap-2"><button onclick="adjustInput('input-${variant.id}', -1)" class="w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100 text-gray-600"><i class="fa-solid fa-minus text-[10px]"></i></button><input type="number" id="input-${variant.id}" value="${currentStock}" min="0" class="w-12 text-center font-bold text-gray-800 bg-white border border-gray-300 rounded py-1 text-sm focus:ring-2 focus:ring-blue-500 outline-none" data-variant-id="${variant.id}" data-inventory-item-id="${variant.inventoryItemId}"><button onclick="adjustInput('input-${variant.id}', 1)" class="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800"><i class="fa-solid fa-plus text-[10px]"></i></button></div>`;
                 container.appendChild(div);
             });
             document.getElementById('variantModal').classList.remove('hidden');
