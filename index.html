@@ -63,7 +63,9 @@
         // *** IMPORTANT: REPLACE WITH NEW DEPLOYMENT URL ***
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzZLIADFPhsYJW8wABKi3CGBvoRklmMAD5QMZJVntCoJBeJVT7JCKQrZbJ7vehVZII/exec";
         
+        // ADDED ADMIN CREDENTIALS
         const STORE_CREDENTIALS = {
+            'admin': '61983',
             'dhanmondi': '111',
             'banani': '222',
             'uttara': '333'
@@ -101,6 +103,8 @@
                 <div class="space-y-4">
                     <select id="loginStoreSelect" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500">
                         <option value="" disabled selected>Select Your Store</option>
+                        <!-- Added Admin Option at the top -->
+                        <option value="admin">Admin</option>
                         <option value="dhanmondi">Dhanmondi Store</option>
                         <option value="banani">Banani Store</option>
                         <option value="uttara">Uttara Store</option>
