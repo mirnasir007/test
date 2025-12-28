@@ -2,24 +2,56 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shopify Live Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Website Inventory</title>
+    
+    <!-- PWA / Mobile App Settings -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIlN0b3JlIE1hbmFnZXIiLAogICJzaG9ydF9uYW1lIjogIkludmVudG9yeSIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjZmZmZmZmIiwKICAidGhlbWVfY29sb3IiOiAiIzE2YTM0YSIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImxvZ28ucG5nIiwKICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciCiAgICB9CiAgXQp9">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        body { background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; }
-        .retro-img-container { aspect-ratio: 3 / 2; overflow: hidden; background-color: #e2e8f0; cursor: pointer; position: relative; }
+        body { background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        .retro-img-container { aspect-ratio: 3:2; overflow: hidden; background-color: #e2e8f0; cursor: pointer; position: relative; }
         .retro-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
         .product-card:hover .retro-img { transform: scale(1.05); }
         .retro-img-container::after { content: '\f00e'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; opacity: 0; transition: opacity 0.3s ease; text-shadow: 0 2px 4px rgba(0,0,0,0.5); pointer-events: none; }
         .retro-img-container:hover::after { opacity: 1; }
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #16a34a; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #16a34a; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .animate-slide-down { animation: slideDown 0.5s ease-out forwards; }
+
+        /* Custom Searchable Dropdown Styles */
+        .custom-select-wrapper { position: relative; width: 100%; }
+        .custom-select-trigger {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.5rem 0.75rem; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem;
+            cursor: pointer; font-size: 0.875rem; line-height: 1.25rem; white-space: nowrap; overflow: hidden;
+        }
+        .custom-options {
+            position: absolute; display: none; top: 100%; left: 0; right: 0;
+            background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); z-index: 50; margin-top: 4px;
+        }
+        .custom-options.open { display: block; }
+        .option { padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.875rem; color: #4b5563; }
+        .option:hover { background-color: #f3f4f6; color: #111827; }
+        .option.selected { background-color: #eff6ff; color: #1d4ed8; font-weight: 600; }
+        .search-in-dropdown {
+            padding: 0.5rem; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; background: white; z-index: 10;
+        }
     </style>
 </head>
 <body class="text-slate-800 relative">
@@ -71,110 +103,138 @@
         </div>
     </div>
 
-    <!-- HEADER -->
+    <!-- HEADER (Redesigned for Mobile) -->
     <div class="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-4">
-            <div class="flex items-center gap-2 min-w-max">
-                <i class="fa-brands fa-shopify text-3xl text-green-600"></i>
-                <div><h1 class="font-bold text-lg leading-tight">Store Manager</h1><p class="text-xs text-gray-500">Connected to Shopify</p></div>
+        <div class="max-w-7xl mx-auto px-3 py-3">
+            
+            <!-- Top Row: Title & Store Info -->
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-2">
+                    <i class="fa-brands fa-shopify text-2xl text-green-600"></i>
+                    <div>
+                        <h1 class="font-bold text-base leading-tight text-gray-800">Store Manager</h1>
+                        <p class="text-[10px] text-gray-500">Shopify Sync</p>
+                    </div>
+                </div>
+                
+                <!-- Store Info (Right Aligned on Mobile) -->
+                <div class="text-right">
+                    <div class="flex items-center justify-end gap-1 text-green-700 font-bold text-sm uppercase tracking-wide">
+                        <i class="fa-solid fa-store text-xs"></i> <span id="displayStoreName">...</span>
+                    </div>
+                    <button onclick="logout()" class="text-[10px] text-red-500 font-bold hover:underline mt-0.5">LOGOUT <i class="fa-solid fa-right-from-bracket ml-0.5"></i></button>
+                </div>
             </div>
             
-            <div class="flex flex-col md:flex-row gap-2 w-full lg:justify-end items-center">
-                <!-- User Info -->
-                <div class="flex items-center bg-green-50 rounded-lg px-3 py-2 border border-green-200 w-full md:w-auto justify-between md:justify-start">
-                    <span id="displayStoreName" class="text-sm font-bold text-green-800 uppercase tracking-wide">...</span>
-                    <button onclick="logout()" class="ml-3 text-xs text-red-500 font-bold underline">Logout</button>
+            <!-- Controls Row: One Line on Mobile -->
+            <div class="flex items-center gap-2 w-full">
+                
+                <!-- Custom Searchable Dropdown (Flex Grow) -->
+                <div class="custom-select-wrapper flex-1 min-w-0" id="customDropdown">
+                    <div class="custom-select-trigger" onclick="toggleDropdown()">
+                        <span id="dropdownSelectedText" class="truncate">Select Collection</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-gray-400 ml-2"></i>
+                    </div>
+                    <div class="custom-options shadow-xl" id="dropdownOptions">
+                        <div class="search-in-dropdown">
+                            <input type="text" id="dropdownSearchInput" placeholder="Search collection..." class="w-full text-xs p-2 border border-gray-200 rounded bg-gray-50 focus:outline-none focus:border-blue-500" onclick="event.stopPropagation()" oninput="filterDropdownOptions()">
+                        </div>
+                        <div class="max-h-48 overflow-y-auto custom-scroll" id="dropdownListContainer">
+                            <!-- Options injected here -->
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Collection Dropdown -->
-                <select id="collectionFilter" class="w-full md:w-48 pl-3 pr-8 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500">
-                    <option value="">Select Collection</option>
-                </select>
-
-                <!-- CLEAR BUTTON (New) -->
-                <button onclick="clearFilters()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-10 h-10 rounded-lg flex items-center justify-center border border-gray-300 transition-colors" title="Clear Filters">
-                    <i class="fa-solid fa-rotate-left"></i>
+                <!-- Clear Button (Fixed Width) -->
+                <button onclick="clearFilters()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center border border-gray-300 transition-colors" title="Reset">
+                    <i class="fa-solid fa-rotate-left text-xs"></i>
                 </button>
 
-                <!-- Search Input -->
-                <div class="relative w-full md:w-64">
-                    <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
-                    <input type="text" id="searchInput" placeholder="Search SKU, Name or Type..." class="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500">
+                <!-- Search Input (Flex Grow) -->
+                <div class="relative flex-1 min-w-0">
+                    <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400 text-xs"></i>
+                    <input type="text" id="searchInput" placeholder="Search..." class="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-green-500">
                 </div>
             </div>
         </div>
     </div>
 
     <!-- NOTIFICATIONS -->
-    <div id="notificationsContainer" class="max-w-7xl mx-auto px-4 mt-4 hidden">
-        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 shadow-sm">
-            <h3 class="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2"><i class="fa-solid fa-bell text-blue-600"></i> Recent Updates</h3>
+    <div id="notificationsContainer" class="max-w-7xl mx-auto px-4 mt-2 hidden">
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 shadow-sm">
+            <h3 class="text-xs font-bold text-blue-800 mb-2 flex items-center gap-2"><i class="fa-solid fa-bell text-blue-600"></i> Updates</h3>
             <div id="notificationList" class="space-y-2"></div>
         </div>
     </div>
 
     <!-- MAIN BODY -->
-    <div class="max-w-full mx-auto px-4 py-6">
+    <div class="max-w-full mx-auto px-4 py-4">
         
-        <div id="statsBar" class="hidden flex justify-between items-center mb-6 max-w-7xl mx-auto">
-            <h2 class="text-xl font-bold text-gray-700">Products</h2>
-            <div class="text-sm text-gray-500">Showing: <span id="productCount" class="font-bold text-black">0</span></div>
+        <div id="statsBar" class="hidden flex justify-between items-center mb-4 max-w-7xl mx-auto">
+            <h2 class="text-lg font-bold text-gray-700">Inventory</h2>
+            <div class="text-xs text-gray-500 bg-white px-2 py-1 rounded border">Count: <span id="productCount" class="font-bold text-black">0</span></div>
         </div>
 
         <!-- Initial Blank State -->
-        <div id="initialState" class="text-center py-32">
-            <div class="bg-white p-10 rounded-2xl shadow-sm inline-block border border-gray-100">
-                <div class="text-green-600 text-6xl mb-4"><i class="fa-solid fa-boxes-stacked"></i></div>
-                <h2 class="text-2xl font-bold text-gray-700 mb-2">Ready to Manage Inventory</h2>
-                <p class="text-gray-500 max-w-md mx-auto">Please <b>Search</b> for a product or select a <b>Collection</b> from the dropdown above to view stock.</p>
+        <div id="initialState" class="text-center py-24">
+            <div class="bg-white p-8 rounded-2xl shadow-sm inline-block border border-gray-100 mx-4">
+                <div class="text-green-600 text-5xl mb-4"><i class="fa-solid fa-boxes-stacked"></i></div>
+                <h2 class="text-xl font-bold text-gray-700 mb-2">Inventory Ready</h2>
+                <p class="text-sm text-gray-500">Select a collection or search to begin.</p>
             </div>
         </div>
 
         <div id="loadingState" class="hidden text-center py-20">
             <div class="loader"></div>
-            <p id="loadingText" class="text-gray-500">Fetching data...</p>
+            <p id="loadingText" class="text-xs text-gray-500 mt-2">Loading...</p>
         </div>
 
-        <div id="productGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 hidden"></div>
+        <!-- Product Grid: 2 cols mobile, 5 cols desktop -->
+        <div id="productGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 hidden"></div>
         
-        <!-- LOAD MORE BUTTON (New) -->
-        <div id="loadMoreContainer" class="hidden text-center mt-10 pb-10">
-            <button onclick="loadMoreProducts()" class="bg-white border border-gray-300 text-gray-700 font-semibold px-8 py-3 rounded-full hover:bg-gray-50 shadow-sm transition-all transform hover:scale-105">
-                Load More Products <i class="fa-solid fa-arrow-down ml-2"></i>
+        <!-- LOAD MORE BUTTON -->
+        <div id="loadMoreContainer" class="hidden text-center mt-8 pb-10">
+            <button onclick="loadMoreProducts()" class="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-6 py-2 rounded-full hover:bg-gray-50 shadow-sm transition-all">
+                Load More <i class="fa-solid fa-arrow-down ml-1"></i>
             </button>
         </div>
 
-        <div id="emptyState" class="hidden text-center py-20">
-            <div class="text-gray-400 text-5xl mb-3"><i class="fa-solid fa-box-open"></i></div>
-            <p class="text-gray-500">No products found.</p>
+        <div id="emptyState" class="hidden text-center py-16">
+            <div class="text-gray-300 text-4xl mb-2"><i class="fa-solid fa-box-open"></i></div>
+            <p class="text-sm text-gray-500">No results found.</p>
         </div>
     </div>
 
     <!-- MODAL -->
-    <div id="variantModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-            <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
-                <div><h3 class="font-bold text-lg" id="modalProductName">...</h3><p class="text-xs text-gray-500">Editing: <span id="modalStoreName" class="font-bold text-blue-600 uppercase">...</span></p></div>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+    <div id="variantModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
+            <div class="bg-gray-50 px-5 py-3 border-b flex justify-between items-center">
+                <div><h3 class="font-bold text-base truncate max-w-[200px]" id="modalProductName">...</h3><p class="text-[10px] text-gray-500 uppercase font-bold tracking-wider" id="modalStoreName">...</p></div>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times text-lg"></i></button>
             </div>
-            <div class="p-6 max-h-[60vh] overflow-y-auto custom-scroll" id="modalVariantsContainer"></div>
-            <div class="bg-gray-50 px-6 py-4 border-t flex justify-end gap-3">
-                <button onclick="closeModal()" class="px-4 py-2 text-sm text-gray-600">Cancel</button>
-                <button id="saveBtn" onclick="saveInventoryChanges()" class="px-6 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 flex items-center gap-2"><span id="saveBtnText">Update Shopify</span></button>
+            <div class="p-5 max-h-[50vh] overflow-y-auto custom-scroll" id="modalVariantsContainer"></div>
+            <div class="bg-gray-50 px-5 py-3 border-t flex justify-end gap-2">
+                <button onclick="closeModal()" class="px-3 py-2 text-xs font-medium text-gray-600 border border-gray-300 rounded hover:bg-gray-100">Cancel</button>
+                <button id="saveBtn" onclick="saveInventoryChanges()" class="px-4 py-2 bg-black text-white text-xs font-bold uppercase rounded hover:bg-gray-800 flex items-center gap-2"><span id="saveBtnText">Update</span></button>
             </div>
         </div>
     </div>
 
-    <div id="toast" class="fixed bottom-5 right-5 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-3"><i class="fa-solid fa-circle-check text-green-400"></i> <span id="toastMsg">Success</span></div>
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg translate-y-20 opacity-0 transition-all duration-300 z-[60] flex items-center gap-2 text-xs whitespace-nowrap">
+        <i class="fa-solid fa-circle-check text-green-400"></i> <span id="toastMsg">Success</span>
+    </div>
 
     <script>
         let products = [];
+        let collectionsList = []; // Store collections for search
         let currentStore = null;
         let currentCollectionName = ''; 
         let currentEditingProductId = null;
         let searchDebounceTimer = null;
-        let lastCursor = null; // Pagination Cursor
+        let lastCursor = null; 
         let hasMoreProducts = false;
+        let selectedCollectionId = ""; // Track custom dropdown value
 
         const loginStoreSelect = document.getElementById('loginStoreSelect');
         const passwordFieldWrapper = document.getElementById('passwordFieldWrapper');
@@ -199,19 +259,17 @@
 
         // --- DATA FETCHING ---
         async function loadInitialData() {
-            toggleLoading(true, "Loading Dashboard...");
+            toggleLoading(true, "Loading...");
             try {
                 const response = await fetch(`${WEB_APP_URL}?action=getInitialData&store=${currentStore}`);
                 const data = await response.json();
 
                 if(data.status === 'success') {
-                    const select = document.getElementById('collectionFilter');
-                    select.innerHTML = '<option value="">Select Collection</option>';
-                    data.collections.forEach(col => {
-                        const option = document.createElement('option');
-                        option.value = col.id; option.innerText = col.title;
-                        select.appendChild(option);
-                    });
+                    // Sort Collections A-Z
+                    collectionsList = data.collections.sort((a, b) => a.title.localeCompare(b.title));
+                    
+                    // Populate Custom Dropdown
+                    populateCustomDropdown(collectionsList);
 
                     if (data.notifications && data.notifications.length > 0) {
                         renderNotifications(data.notifications);
@@ -225,12 +283,10 @@
 
         async function performSearch(query, collectionId, cursor = null) {
             if(!cursor) {
-                // New Search: Hide Initial, Show Loader
                 document.getElementById('initialState').classList.add('hidden');
                 document.getElementById('loadMoreContainer').classList.add('hidden');
-                toggleLoading(true, "Searching Shopify...");
+                toggleLoading(true, "Searching...");
             } else {
-                // Load More: Change Button Text
                 document.querySelector('#loadMoreContainer button').innerText = "Loading...";
             }
 
@@ -245,14 +301,11 @@
 
                 if(data.status === 'success') {
                     if (cursor) {
-                        // Append Logic
                         products = products.concat(data.products);
                     } else {
-                        // New Search Logic
                         products = data.products;
                     }
                     
-                    // Update Pagination Info
                     lastCursor = data.pageInfo.endCursor;
                     hasMoreProducts = data.pageInfo.hasNextPage;
                     
@@ -263,17 +316,85 @@
             } catch (e) { console.error(e); } 
             finally { 
                 toggleLoading(false); 
-                document.querySelector('#loadMoreContainer button').innerHTML = 'Load More Products <i class="fa-solid fa-arrow-down ml-2"></i>';
+                document.querySelector('#loadMoreContainer button').innerHTML = 'Load More <i class="fa-solid fa-arrow-down ml-1"></i>';
             }
         }
+
+        // --- CUSTOM DROPDOWN LOGIC ---
+        function populateCustomDropdown(list) {
+            const container = document.getElementById('dropdownListContainer');
+            container.innerHTML = '';
+            
+            // Add "All" option (equivalent to reset)
+            const allOpt = document.createElement('div');
+            allOpt.className = 'option';
+            allOpt.innerText = 'All Collections';
+            allOpt.onclick = () => selectCollection('', 'Select Collection');
+            container.appendChild(allOpt);
+
+            list.forEach(col => {
+                const div = document.createElement('div');
+                div.className = 'option';
+                div.innerText = col.title;
+                div.dataset.value = col.id;
+                div.onclick = () => selectCollection(col.id, col.title);
+                container.appendChild(div);
+            });
+        }
+
+        function toggleDropdown() {
+            document.getElementById('dropdownOptions').classList.toggle('open');
+            if(document.getElementById('dropdownOptions').classList.contains('open')) {
+                document.getElementById('dropdownSearchInput').focus();
+            }
+        }
+
+        function filterDropdownOptions() {
+            const filter = document.getElementById('dropdownSearchInput').value.toLowerCase();
+            const options = document.querySelectorAll('.custom-options .option');
+            options.forEach(opt => {
+                const txt = opt.innerText.toLowerCase();
+                if(txt.includes(filter)) {
+                    opt.style.display = "";
+                } else {
+                    opt.style.display = "none";
+                }
+            });
+        }
+
+        function selectCollection(id, title) {
+            selectedCollectionId = id;
+            currentCollectionName = title;
+            document.getElementById('dropdownSelectedText').innerText = title;
+            document.getElementById('dropdownOptions').classList.remove('open');
+            document.getElementById('dropdownSearchInput').value = ''; // Reset search
+            filterDropdownOptions(); // Reset list visibility
+            
+            // Trigger Search Logic
+            lastCursor = null; 
+            if(id) {
+                performSearch(null, id);
+            } else {
+                clearFilters(); // If 'All Collections' selected
+            }
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('customDropdown');
+            if (!wrapper.contains(e.target)) {
+                document.getElementById('dropdownOptions').classList.remove('open');
+            }
+        });
 
         // --- NEW FEATURES ---
         
         function clearFilters() {
-            // Reset UI to Initial State
             document.getElementById('searchInput').value = '';
-            document.getElementById('collectionFilter').selectedIndex = 0;
-            currentCollectionName = '';
+            selectedCollectionId = "";
+            currentCollectionName = "";
+            document.getElementById('dropdownSelectedText').innerText = "Select Collection";
+            
             products = [];
             lastCursor = null;
             hasMoreProducts = false;
@@ -284,14 +405,13 @@
             document.getElementById('loadMoreContainer').classList.add('hidden');
             
             document.getElementById('initialState').classList.remove('hidden');
-            showToast("Filters Cleared");
+            showToast("Reset");
         }
 
         function loadMoreProducts() {
             if (hasMoreProducts && lastCursor) {
                 const query = document.getElementById('searchInput').value;
-                const collectionId = document.getElementById('collectionFilter').value;
-                performSearch(query, collectionId, lastCursor);
+                performSearch(query, selectedCollectionId, lastCursor);
             }
         }
 
@@ -306,7 +426,6 @@
             
             if(show) {
                 loader.classList.remove('hidden');
-                // Only hide grid if it's a new search, not load more
                 if(!lastCursor) {
                     grid.classList.add('hidden');
                     empty.classList.add('hidden');
@@ -364,9 +483,9 @@
                             <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">${product.type || 'Product'}</span>
                             <span class="text-[10px] text-gray-400 font-mono">SKU: ${mainSku}</span>
                         </div>
-                        <h3 class="font-bold text-gray-800 text-base leading-tight mb-2 line-clamp-2">${product.title}</h3>
+                        <h3 class="font-bold text-gray-800 text-sm leading-tight mb-2 line-clamp-2">${product.title}</h3>
                         <div class="mt-auto">
-                            <p class="text-xs text-gray-500 font-semibold">Total Inventory: ${info.totalStock}</p>
+                            <p class="text-xs text-gray-500 font-semibold">Total: ${info.totalStock}</p>
                             ${variantBreakdownHtml}
                             <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100">
                                 <button onclick="openModal('${product.id}')" class="flex-1 bg-gray-900 text-white text-xs font-bold uppercase tracking-wide py-2 rounded hover:bg-gray-700 transition-colors">Manage</button>
@@ -376,7 +495,6 @@
                 grid.appendChild(card);
             });
 
-            // Show Load More if available
             if (hasMoreProducts) {
                 loadMoreBtn.classList.remove('hidden');
             } else {
@@ -384,7 +502,7 @@
             }
         }
 
-        // --- REUSED FUNCTIONS (Same as before) ---
+        // --- REUSED FUNCTIONS ---
         function getProductStatus(product) {
             const status = product.status ? product.status.toUpperCase() : 'DRAFT';
             let totalShopifyStock = 0;
@@ -416,8 +534,8 @@
                     };
                     await sendUpdateToBackend(payload);
                 }
-                showToast("Inventory Synced Successfully!");
-                renderProducts(); // Simple re-render
+                showToast("Updated!");
+                renderProducts();
                 closeModal();
             } catch (error) { alert("Update Failed: " + error.message); } 
             finally { saveBtn.disabled = false; document.getElementById('saveBtnText').innerText = originalText; saveBtn.classList.remove('opacity-75'); }
@@ -440,7 +558,7 @@
              }
         }
 
-        // ... Modal, Image Preview, Toast helper functions remain same ...
+        // ... Helpers ...
         function openModal(productId) {
             const product = products.find(p => p.id == productId);
             if (!product) return;
@@ -454,11 +572,11 @@
                 const div = document.createElement('div');
                 div.className = 'flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100 mb-3 last:mb-0';
                 div.innerHTML = `
-                    <div><p class="font-semibold text-gray-700 text-sm">${variant.title}</p><p class="text-[10px] text-gray-400 font-mono">SKU: ${variant.sku}</p></div>
-                    <div class="flex items-center gap-3">
-                        <button onclick="adjustInput('input-${variant.id}', -1)" class="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100 text-gray-600"><i class="fa-solid fa-minus text-xs"></i></button>
-                        <input type="number" id="input-${variant.id}" value="${currentStock}" min="0" class="w-16 text-center font-bold text-gray-800 bg-white border border-gray-300 rounded py-1 focus:ring-2 focus:ring-blue-500 outline-none" data-variant-id="${variant.id}" data-inventory-item-id="${variant.inventoryItemId}">
-                        <button onclick="adjustInput('input-${variant.id}', 1)" class="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800"><i class="fa-solid fa-plus text-xs"></i></button>
+                    <div class="flex-1 min-w-0 pr-2"><p class="font-semibold text-gray-700 text-xs truncate">${variant.title}</p><p class="text-[10px] text-gray-400 font-mono truncate">${variant.sku}</p></div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="adjustInput('input-${variant.id}', -1)" class="w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100 text-gray-600"><i class="fa-solid fa-minus text-[10px]"></i></button>
+                        <input type="number" id="input-${variant.id}" value="${currentStock}" min="0" class="w-12 text-center font-bold text-gray-800 bg-white border border-gray-300 rounded py-1 text-sm focus:ring-2 focus:ring-blue-500 outline-none" data-variant-id="${variant.id}" data-inventory-item-id="${variant.inventoryItemId}">
+                        <button onclick="adjustInput('input-${variant.id}', 1)" class="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800"><i class="fa-solid fa-plus text-[10px]"></i></button>
                     </div>`;
                 container.appendChild(div);
             });
@@ -470,50 +588,27 @@
         function closeImagePreview(e, force) { if (force || e.target.id === 'imagePreviewModal') { const m = document.getElementById('imagePreviewModal'); m.classList.add('opacity-0'); setTimeout(() => m.classList.add('hidden'), 300); } }
         function showToast(msg) { const t = document.getElementById('toast'); document.getElementById('toastMsg').innerText = msg; t.classList.remove('translate-y-20', 'opacity-0'); setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 3000); }
         function renderNotifications(notifications) {
-            const container = document.getElementById('notificationsContainer');
             const list = document.getElementById('notificationList');
             list.innerHTML = ''; 
             notifications.forEach(notif => {
                 const item = document.createElement('div');
-                item.className = 'flex justify-between items-center bg-white p-3 rounded-lg border border-blue-100 shadow-sm hover:shadow-md transition-shadow';
-                item.innerHTML = `<div class="flex items-center gap-3"><span class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-pen-to-square"></i></span><div class="text-sm text-gray-700"><span class="font-bold text-gray-900 capitalize">${notif.msg.split(' updated ')[0]}</span> updated <span class="font-bold text-blue-600">${notif.collection}</span></div></div><button onclick="applyNotificationFilter('${notif.collection}')" class="text-xs bg-gray-900 hover:bg-gray-700 text-white font-medium px-4 py-1.5 rounded-lg transition-colors">View</button>`;
+                item.className = 'flex justify-between items-center bg-white p-2 rounded border border-blue-100 shadow-sm';
+                item.innerHTML = `<div class="flex items-center gap-2"><span class="bg-blue-100 text-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"><i class="fa-solid fa-pen"></i></span><div class="text-xs text-gray-700 truncate max-w-[200px]"><span class="font-bold text-gray-900">${notif.msg.split(' updated ')[0]}</span> updated <span class="font-bold text-blue-600">${notif.collection}</span></div></div><button onclick="applyNotificationFilter('${notif.collection}')" class="text-[10px] bg-gray-900 text-white px-3 py-1 rounded transition-colors">View</button>`;
                 list.appendChild(item);
             });
-            container.classList.remove('hidden');
+            document.getElementById('notificationsContainer').classList.remove('hidden');
         }
         function applyNotificationFilter(collectionTitle) {
-            const select = document.getElementById('collectionFilter');
+            const list = document.querySelectorAll('.option');
             let foundId = "";
-            for (let i = 0; i < select.options.length; i++) {
-                if (select.options[i].text === collectionTitle) {
-                    select.selectedIndex = i;
-                    foundId = select.options[i].value;
-                    break;
-                }
-            }
-            if(foundId) {
-                currentCollectionName = collectionTitle; 
-                performSearch(null, foundId);
-            }
+            list.forEach(opt => { if(opt.innerText === collectionTitle) foundId = opt.dataset.value; });
+            if(foundId) selectCollection(foundId, collectionTitle);
         }
 
         document.getElementById('searchInput').addEventListener('input', (e) => {
             clearTimeout(searchDebounceTimer);
             const val = e.target.value;
-            // Always search if char > 2, pass null cursor to reset
-            if (val.length > 2) { 
-                lastCursor = null; 
-                searchDebounceTimer = setTimeout(() => { performSearch(val, null); }, 600); 
-            }
-        });
-        document.getElementById('collectionFilter').addEventListener('change', (e) => {
-            const collectionId = e.target.value;
-            const collectionName = e.target.options[e.target.selectedIndex].text;
-            if (collectionId) {
-                currentCollectionName = collectionName;
-                lastCursor = null; // Reset cursor on new filter
-                performSearch(null, collectionId);
-            }
+            if (val.length > 2) { lastCursor = null; searchDebounceTimer = setTimeout(() => { performSearch(val, null); }, 600); }
         });
     </script>
 </body>
