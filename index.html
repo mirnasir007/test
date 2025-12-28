@@ -5,15 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Website Inventory</title>
     
-    <!-- PWA / Mobile App Settings -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#ffffff">
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="apple-touch-icon" href="logo.png">
-    
-    <!-- Base64 Manifest for PWA -->
     <link rel="manifest" id="manifest-placeholder">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -21,55 +18,38 @@
     
     <style>
         body { background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
-        
         .retro-img-container { aspect-ratio: 3:2; overflow: hidden; background-color: #e2e8f0; cursor: pointer; position: relative; }
         .retro-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
         .product-card:hover .retro-img { transform: scale(1.05); }
         .retro-img-container::after { content: '\f00e'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; opacity: 0; transition: opacity 0.3s ease; text-shadow: 0 2px 4px rgba(0,0,0,0.5); pointer-events: none; }
         .retro-img-container:hover::after { opacity: 1; }
-        
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
-        
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid #16a34a; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .animate-slide-down { animation: slideDown 0.5s ease-out forwards; }
-
-        /* Custom Searchable Dropdown Styles */
         .custom-select-wrapper { position: relative; width: 100%; }
-        .custom-select-trigger {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 0.5rem 0.75rem; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem;
-            cursor: pointer; font-size: 0.875rem; line-height: 1.25rem; white-space: nowrap; overflow: hidden;
-        }
-        .custom-options {
-            position: absolute; display: none; top: 100%; left: 0; right: 0;
-            background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); z-index: 50; margin-top: 4px;
-        }
+        .custom-select-trigger { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; cursor: pointer; font-size: 0.875rem; line-height: 1.25rem; white-space: nowrap; overflow: hidden; }
+        .custom-options { position: absolute; display: none; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); z-index: 50; margin-top: 4px; }
         .custom-options.open { display: block; }
         .option { padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.875rem; color: #4b5563; }
         .option:hover { background-color: #f3f4f6; color: #111827; }
         .option.selected { background-color: #eff6ff; color: #1d4ed8; font-weight: 600; }
-        .search-in-dropdown {
-            padding: 0.5rem; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; background: white; z-index: 10;
-        }
+        .search-in-dropdown { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; background: white; z-index: 10; }
     </style>
 </head>
 <body class="text-slate-800 relative">
 
     <script>
-        // *** IMPORTANT: REPLACE WITH NEW DEPLOYMENT URL ***
+        // *** IMPORTANT: UPDATE WITH NEW DEPLOYMENT URL ***
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzZLIADFPhsYJW8wABKi3CGBvoRklmMAD5QMZJVntCoJBeJVT7JCKQrZbJ7vehVZII/exec";
         
-        // --- PWA MANIFEST INJECTION ---
-        // Wrapped in event listener to ensure DOM is ready
         window.addEventListener('DOMContentLoaded', () => {
             const manifest = {
                 "name": "Store Manager",
                 "short_name": "Inventory",
-                "start_url": window.location.href, // Dynamic Start URL
+                "start_url": window.location.href,
                 "display": "standalone",
                 "background_color": "#ffffff",
                 "theme_color": "#16a34a",
@@ -83,13 +63,11 @@
             const manifestURL = URL.createObjectURL(blob);
             
             const linkTag = document.querySelector('#manifest-placeholder');
-            if (linkTag) {
-                linkTag.setAttribute('href', manifestURL);
-            }
+            if (linkTag) { linkTag.setAttribute('href', manifestURL); }
         });
     </script>
 
-    <!-- LOGIN OVERLAY -->
+    <!-- LOGIN -->
     <div id="loginOverlay" class="fixed inset-0 z-[100] bg-gray-900 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
             <div class="bg-green-600 h-2"></div>
@@ -119,7 +97,7 @@
         </div>
     </div>
 
-    <!-- PREVIEW MODAL -->
+    <!-- PREVIEW -->
     <div id="imagePreviewModal" class="fixed inset-0 z-[150] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-sm opacity-0 transition-opacity duration-300" onclick="closeImagePreview(event)">
         <div class="relative max-w-5xl w-full max-h-screen flex flex-col items-center justify-center" onclick="event.stopPropagation()">
             <button onclick="closeImagePreview(null, true)" class="absolute -top-12 right-0 md:right-0 md:-top-10 text-white/70 hover:text-white transition-colors z-50"><i class="fa-solid fa-times text-3xl"></i></button>
@@ -128,21 +106,14 @@
         </div>
     </div>
 
-    <!-- HEADER (Redesigned for Mobile) -->
+    <!-- HEADER -->
     <div class="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-3 py-3">
-            
-            <!-- Top Row: Title & Store Info -->
             <div class="flex justify-between items-start mb-3">
                 <div class="flex items-center gap-2">
                     <i class="fa-brands fa-shopify text-2xl text-green-600"></i>
-                    <div>
-                        <h1 class="font-bold text-base leading-tight text-gray-800">Store Manager</h1>
-                        <p class="text-[10px] text-gray-500">Shopify Sync</p>
-                    </div>
+                    <div><h1 class="font-bold text-base leading-tight text-gray-800">Store Manager</h1><p class="text-[10px] text-gray-500">Shopify Sync</p></div>
                 </div>
-                
-                <!-- Store Info (Right Aligned on Mobile) -->
                 <div class="text-right">
                     <div class="flex items-center justify-end gap-1 text-green-700 font-bold text-sm uppercase tracking-wide">
                         <i class="fa-solid fa-store text-xs"></i> <span id="displayStoreName">...</span>
@@ -151,10 +122,7 @@
                 </div>
             </div>
             
-            <!-- Controls Row: One Line on Mobile -->
             <div class="flex items-center gap-2 w-full">
-                
-                <!-- Custom Searchable Dropdown (Flex Grow) -->
                 <div class="custom-select-wrapper flex-1 min-w-0" id="customDropdown">
                     <div class="custom-select-trigger" onclick="toggleDropdown()">
                         <span id="dropdownSelectedText" class="truncate">Select Collection</span>
@@ -164,18 +132,12 @@
                         <div class="search-in-dropdown">
                             <input type="text" id="dropdownSearchInput" placeholder="Search collection..." class="w-full text-xs p-2 border border-gray-200 rounded bg-gray-50 focus:outline-none focus:border-blue-500" onclick="event.stopPropagation()" oninput="filterDropdownOptions()">
                         </div>
-                        <div class="max-h-48 overflow-y-auto custom-scroll" id="dropdownListContainer">
-                            <!-- Options injected here -->
-                        </div>
+                        <div class="max-h-48 overflow-y-auto custom-scroll" id="dropdownListContainer"></div>
                     </div>
                 </div>
-
-                <!-- Clear Button (Fixed Width) -->
                 <button onclick="clearFilters()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center border border-gray-300 transition-colors" title="Reset">
                     <i class="fa-solid fa-rotate-left text-xs"></i>
                 </button>
-
-                <!-- Search Input (Flex Grow) -->
                 <div class="relative flex-1 min-w-0">
                     <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400 text-xs"></i>
                     <input type="text" id="searchInput" placeholder="Search..." class="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs font-medium focus:outline-none focus:border-green-500">
@@ -195,9 +157,25 @@
     <!-- MAIN BODY -->
     <div class="max-w-full mx-auto px-4 py-4">
         
+        <!-- Stats & Sorting (UPDATED: Default Value Set) -->
         <div id="statsBar" class="hidden flex justify-between items-center mb-4 max-w-7xl mx-auto">
             <h2 class="text-lg font-bold text-gray-700">Inventory</h2>
-            <div class="text-xs text-gray-500 bg-white px-2 py-1 rounded border">Count: <span id="productCount" class="font-bold text-black">0</span></div>
+            <div class="flex items-center gap-2">
+                <!-- SORTING DROPDOWN -->
+                <select id="sortFilter" class="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-green-500 bg-white text-gray-700 h-8">
+                    <!-- Default Selected: Date, new to old -->
+                    <option value="CREATED_AT:true" selected>Date, new to old</option>
+                    <option value="CREATED_AT:false">Date, old to new</option>
+                    <option value="TITLE:false">Alphabetically, A-Z</option>
+                    <option value="TITLE:true">Alphabetically, Z-A</option>
+                    <option value="PRICE:false">Price, low to high</option>
+                    <option value="PRICE:true">Price, high to low</option>
+                    <option value="BEST_SELLING:false">Best selling</option>
+                    <option value="MANUAL:false">Featured</option>
+                </select>
+                
+                <div class="text-xs text-gray-500 bg-white px-2 py-1 rounded border h-8 flex items-center">Count: <span id="productCount" class="font-bold text-black ml-1">0</span></div>
+            </div>
         </div>
 
         <!-- Initial Blank State -->
@@ -206,7 +184,6 @@
                 <div class="text-green-600 text-5xl mb-4"><i class="fa-solid fa-boxes-stacked"></i></div>
                 <h2 class="text-xl font-bold text-gray-700 mb-2">Inventory Ready</h2>
                 <p class="text-sm text-gray-500">Select a collection or search to begin.</p>
-                <!-- Install Button Placeholder (Visible only if installable) -->
                 <button id="installAppBtn" class="hidden mt-6 bg-gray-900 text-white text-xs px-4 py-2 rounded-full mx-auto"><i class="fa-solid fa-download mr-1"></i> Install App</button>
             </div>
         </div>
@@ -216,10 +193,8 @@
             <p id="loadingText" class="text-xs text-gray-500 mt-2">Loading...</p>
         </div>
 
-        <!-- Product Grid -->
         <div id="productGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 hidden"></div>
         
-        <!-- LOAD MORE BUTTON -->
         <div id="loadMoreContainer" class="hidden text-center mt-8 pb-10">
             <button onclick="loadMoreProducts()" class="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-6 py-2 rounded-full hover:bg-gray-50 shadow-sm transition-all">
                 Load More <i class="fa-solid fa-arrow-down ml-1"></i>
@@ -247,7 +222,6 @@
         </div>
     </div>
 
-    <!-- Toast -->
     <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg translate-y-20 opacity-0 transition-all duration-300 z-[60] flex items-center gap-2 text-xs whitespace-nowrap">
         <i class="fa-solid fa-circle-check text-green-400"></i> <span id="toastMsg">Success</span>
     </div>
@@ -263,32 +237,33 @@
         let hasMoreProducts = false;
         let selectedCollectionId = "";
 
-        // --- PWA LOGIC UPDATED TO PREVENT ERRORS ---
+        // --- PWA SERVICE WORKER ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `self.addEventListener('install', (e) => e.waitUntil(self.skipWaiting()));self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));self.addEventListener('fetch', (e) => {});`;
+                const blob = new Blob([swCode], {type: 'application/javascript'});
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).catch(e => console.log("SW Fail:", e));
+            });
+        }
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
+            e.preventDefault(); deferredPrompt = e;
             const btn = document.getElementById('installAppBtn');
             btn.classList.remove('hidden');
             btn.addEventListener('click', () => {
                 deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((result) => {
-                    if (result.outcome === 'accepted') {
-                        btn.classList.add('hidden');
-                    }
-                    deferredPrompt = null;
-                });
+                deferredPrompt.userChoice.then((result) => { if (result.outcome === 'accepted') btn.classList.add('hidden'); deferredPrompt = null; });
             });
         });
 
-        // --- AUTH & PERSISTENCE ---
+        // --- AUTH ---
         const loginStoreSelect = document.getElementById('loginStoreSelect');
         const passwordFieldWrapper = document.getElementById('passwordFieldWrapper');
         const loginBtn = document.getElementById('loginBtn');
 
         window.addEventListener('DOMContentLoaded', () => {
             const savedStore = localStorage.getItem('storeUser');
-            // Check persistence without local password logic
             if (savedStore) {
                 currentStore = savedStore;
                 document.getElementById('displayStoreName').innerText = currentStore;
@@ -297,121 +272,85 @@
             }
         });
 
-        loginStoreSelect.addEventListener('change', function() {
-            if(this.value) { passwordFieldWrapper.classList.remove('hidden'); loginBtn.disabled = false; }
-        });
+        loginStoreSelect.addEventListener('change', function() { if(this.value) { passwordFieldWrapper.classList.remove('hidden'); loginBtn.disabled = false; } });
 
         async function attemptLogin() {
             const selectedStore = loginStoreSelect.value;
             const password = document.getElementById('loginPassword').value;
             const btn = document.getElementById('loginBtn');
-            
-            // UI Loading State
-            btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Checking...`;
+            btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Checking...`;
             document.getElementById('loginError').classList.add('hidden');
 
             try {
-                // Verify with Backend
                 const response = await fetch(WEB_APP_URL, {
                     method: 'POST',
-                    body: JSON.stringify({
-                        action: 'login',
-                        store: selectedStore,
-                        password: password
-                    })
+                    body: JSON.stringify({ action: 'login', store: selectedStore, password: password })
                 });
                 const data = await response.json();
-
                 if (data.status === 'success') {
-                    // Success
                     localStorage.setItem('storeUser', selectedStore);
                     currentStore = selectedStore;
                     document.getElementById('displayStoreName').innerText = currentStore;
                     document.getElementById('loginOverlay').style.display = 'none';
                     loadInitialData();
                 } else {
-                    // Fail
                     document.getElementById('loginError').classList.remove('hidden');
-                    btn.disabled = false;
-                    btn.innerHTML = `<span>Access Dashboard</span>`;
+                    btn.disabled = false; btn.innerHTML = `<span>Access Dashboard</span>`;
                 }
             } catch (error) {
                 alert("Login Error: " + error.message);
-                btn.disabled = false;
-                btn.innerHTML = `<span>Access Dashboard</span>`;
+                btn.disabled = false; btn.innerHTML = `<span>Access Dashboard</span>`;
             }
         }
+        function logout() { localStorage.removeItem('storeUser'); location.reload(); }
 
-        function logout() { 
-            // Clear Local Storage
-            localStorage.removeItem('storeUser');
-            location.reload(); 
-        }
-
-        // --- FAST UPDATE LOGIC (OPTIMISTIC UI) ---
+        // --- OPTIMISTIC UI UPDATE ---
         async function saveInventoryChanges() {
             if (!currentEditingProductId) return;
             const product = products.find(p => p.id == currentEditingProductId);
             const inputs = document.querySelectorAll('#modalVariantsContainer input');
             
-            // 1. UPDATE LOCALLY (INSTANT)
             let updates = [];
-            let totalShopifyStock = 0; // Recalculate total for UI update
-
             inputs.forEach(input => {
                 const variantId = input.getAttribute('data-variant-id');
                 const inventoryItemId = input.getAttribute('data-inventory-item-id');
                 const newQty = parseInt(input.value) || 0;
                 
                 const variant = product.variants.find(v => v.id == variantId);
-                
-                // Update local model
                 variant.inventory[currentStore] = newQty; 
                 
-                // Prepare API Payload
                 updates.push({
-                    productId: product.id,
-                    variantId: variantId,
-                    inventoryItemId: inventoryItemId,
-                    store: currentStore,
-                    quantity: newQty,
-                    otherStoresData: variant.inventory
+                    productId: product.id, variantId: variantId, inventoryItemId: inventoryItemId,
+                    store: currentStore, quantity: newQty, otherStoresData: variant.inventory
                 });
             });
 
-            // 2. CLOSE MODAL & SHOW SUCCESS
             closeModal();
-            renderProducts(); // Refresh grid numbers instantly
-            showToast("Syncing in background...");
+            renderProducts(); 
+            showToast("Updating in background...");
 
-            // 3. SEND TO SERVER (BACKGROUND)
             try {
-                // Send all requests in parallel
                 const promises = updates.map(payload => {
                     payload.action = 'updateInventory';
                     payload.collectionName = currentCollectionName;
                     return fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
                 });
-
                 await Promise.all(promises);
-                
-                // 4. FINAL CONFIRMATION
-                showToast("Update Complete!");
-                
+                showToast("Synced!");
             } catch (error) {
                 console.error(error);
-                alert("Background Sync Failed! Please reload page.");
+                alert("Sync failed. Check connection.");
             }
         }
 
-        // --- DATA & UI FUNCTIONS ---
+        // --- FETCHING ---
         async function loadInitialData() {
             toggleLoading(true, "Loading...");
             try {
                 const response = await fetch(`${WEB_APP_URL}?action=getInitialData&store=${currentStore}`);
                 const data = await response.json();
                 if(data.status === 'success') {
+                    // Sort Collections in JS as well for double safety
                     collectionsList = data.collections.sort((a, b) => a.title.localeCompare(b.title));
                     populateCustomDropdown(collectionsList);
                     if (data.notifications && data.notifications.length > 0) renderNotifications(data.notifications);
@@ -431,10 +370,14 @@
             }
 
             try {
+                const sortValue = document.getElementById('sortFilter').value;
+                const [sortKey, reverse] = sortValue.split(':');
+
                 let url = `${WEB_APP_URL}?action=searchProducts`;
                 if(query) url += `&query=${encodeURIComponent(query)}`;
                 if(collectionId) url += `&collectionId=${encodeURIComponent(collectionId)}`;
                 if(cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+                url += `&sortKey=${sortKey}&reverse=${reverse}`;
 
                 const response = await fetch(url);
                 const data = await response.json();
@@ -455,7 +398,13 @@
             }
         }
 
-        // --- DROPDOWN & UI HELPERS ---
+        // --- SORT LISTENER ---
+        document.getElementById('sortFilter').addEventListener('change', () => {
+            const query = document.getElementById('searchInput').value;
+            performSearch(query, selectedCollectionId, null);
+        });
+
+        // --- DROPDOWN & UI ---
         function populateCustomDropdown(list) {
             const container = document.getElementById('dropdownListContainer');
             container.innerHTML = '';
@@ -534,7 +483,7 @@
                 if(product.variants.length > 0) {
                     variantBreakdownHtml = '<div class="flex flex-wrap gap-1 mt-1.5">';
                     product.variants.forEach(v => {
-                         const totalVarStock = v.actualShopifyStock || 0; // Display real shopify stock
+                         const totalVarStock = v.actualShopifyStock || 0; 
                          const displayName = v.title.replace('Size ', '').replace(' / ', '-').substring(0, 10);
                          const color = totalVarStock > 0 ? 'text-gray-700 font-medium bg-gray-100' : 'text-gray-400 bg-gray-50';
                          variantBreakdownHtml += `<span class="text-[10px] px-1.5 py-0.5 rounded border border-gray-100 ${color}">${displayName}: ${totalVarStock}</span>`;
@@ -556,7 +505,6 @@
             return { totalStock: totalShopifyStock, status, colorClass };
         }
         
-        // --- MODAL & HELPERS ---
         function openModal(productId) {
             const product = products.find(p => p.id == productId);
             if (!product) return;
