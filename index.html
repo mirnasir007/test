@@ -12,7 +12,7 @@
         
         /* 3:2 Ratio Enforced */
         .retro-img-container { 
-            aspect-ratio: 3/2; 
+            aspect-ratio: 3:2; 
             overflow: hidden; 
             background-color: #e2e8f0; 
             cursor: pointer;
@@ -136,13 +136,13 @@
         </div>
     </div>
 
-    <div class="max-w-7xl mx-auto px-4 py-6">
+    <div class="max-w-full mx-auto px-4 py-6">
         <div id="loadingState" class="hidden text-center py-20">
             <div class="loader"></div>
             <p class="text-gray-500">Fetching products & collections...</p>
         </div>
 
-        <div id="statsBar" class="hidden flex justify-between items-center mb-6">
+        <div id="statsBar" class="hidden flex justify-between items-center mb-6 max-w-7xl mx-auto">
             <h2 class="text-xl font-bold text-gray-700">Products</h2>
             <div class="text-sm text-gray-500">Found: <span id="productCount" class="font-bold text-black">0</span></div>
         </div>
@@ -153,7 +153,8 @@
             <p class="text-gray-500">Select a Collection or Search to view live inventory.</p>
         </div>
 
-        <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 hidden"></div>
+        <!-- PRODUCT GRID UPDATE: 2 cols mobile, 5 cols XL -->
+        <div id="productGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 hidden"></div>
         
         <div id="emptyState" class="hidden text-center py-20">
             <div class="text-gray-400 text-5xl mb-3"><i class="fa-solid fa-box-open"></i></div>
@@ -247,7 +248,13 @@
             }
         }
 
-        async function updateInventoryOnServer(payload) {
+        // --- UPDATE LOGIC ---
+        async function saveInventoryChanges() {
+            if (!currentEditingProductId) return;
+            const product = products.find(p => p.id == currentEditingProductId);
+            const inputs = document.querySelectorAll('#modalVariantsContainer input');
+            
+            // 1. Lock UI
             const saveBtn = document.getElementById('saveBtn');
             const originalText = document.getElementById('saveBtnText').innerText;
             saveBtn.disabled = true;
@@ -255,27 +262,53 @@
             saveBtn.classList.add('opacity-75');
 
             try {
-                const response = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-                
-                if(data.status === 'success') {
-                    showToast("Inventory Updated Successfully!");
-                    // We optimistically update local status to match what backend just did
-                    updateLocalProductData(payload.productId, payload.variantId, payload.quantity, data.newStatus);
-                    renderProducts();
-                    closeModal();
-                } else {
-                    alert("Update Failed: " + data.message);
+                // 2. Loop through ALL visible variants and force update
+                for (const input of inputs) {
+                    const variantId = input.getAttribute('data-variant-id');
+                    const inventoryItemId = input.getAttribute('data-inventory-item-id');
+                    const newQty = parseInt(input.value) || 0;
+                    
+                    const variant = product.variants.find(v => v.id == variantId);
+                    
+                    const payload = {
+                        action: 'updateInventory',
+                        productId: product.id,
+                        variantId: variantId,
+                        inventoryItemId: inventoryItemId,
+                        store: currentStore,
+                        quantity: newQty,
+                        otherStoresData: variant.inventory
+                    };
+                    
+                    await sendUpdateToBackend(payload);
                 }
+
+                // 3. Success State
+                showToast("Inventory Synced Successfully!");
+                renderProducts();
+                closeModal();
+
             } catch (error) {
-                alert("Network Error");
+                alert("Update Failed: " + error.message);
             } finally {
+                // 4. Reset UI
                 saveBtn.disabled = false;
                 document.getElementById('saveBtnText').innerText = originalText;
                 saveBtn.classList.remove('opacity-75');
+            }
+        }
+
+        async function sendUpdateToBackend(payload) {
+             const response = await fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            
+            if(data.status === 'success') {
+                updateLocalProductData(payload.productId, payload.variantId, payload.quantity, data.newStatus);
+            } else {
+                throw new Error(data.message);
             }
         }
 
@@ -317,18 +350,18 @@
         }
 
         function getProductStatus(product) {
-            // FIXED: Using actual Shopify Status from API
-            const status = product.status ? product.status.toUpperCase() : 'DRAFT';
-            
-            // Calculate Total Actual Stock from Shopify
-            let actualShopifyStock = 0;
+            let totalCalculatedStock = 0;
             product.variants.forEach(v => {
-                actualShopifyStock += (v.actualShopifyStock || 0);
+                const d = v.inventory.dhanmondi || 0;
+                const b = v.inventory.banani || 0;
+                const u = v.inventory.uttara || 0;
+                totalCalculatedStock += (d + b + u);
             });
 
+            const status = totalCalculatedStock > 0 ? 'ACTIVE' : 'DRAFT';
             const colorClass = status === 'ACTIVE' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200';
             
-            return { totalStock: actualShopifyStock, status, colorClass };
+            return { totalStock: totalCalculatedStock, status, colorClass };
         }
 
         function renderProducts() {
@@ -378,12 +411,9 @@
                 if(product.variants.length > 0) {
                     variantBreakdownHtml = '<div class="flex flex-wrap gap-1 mt-1.5">';
                     product.variants.forEach(v => {
-                         // --- FIX HERE: Use actualShopifyStock instead of summing metafields ---
-                         const totalVarStock = v.actualShopifyStock || 0; 
+                         const totalVarStock = (v.inventory.dhanmondi || 0) + (v.inventory.banani || 0) + (v.inventory.uttara || 0);
                          
-                         // Create short display name (e.g. "Size M" -> "M")
                          const displayName = v.title.replace('Size ', '').replace(' / ', '-').substring(0, 10);
-                         
                          const color = totalVarStock > 0 ? 'text-gray-700 font-medium bg-gray-100' : 'text-gray-400 bg-gray-50';
                          variantBreakdownHtml += `<span class="text-[10px] px-1.5 py-0.5 rounded border border-gray-100 ${color}">${displayName}: ${totalVarStock}</span>`;
                     });
@@ -424,7 +454,7 @@
             });
         }
 
-        // --- UPDATE LOGIC ---
+        // --- MODAL LOGIC ---
 
         function openModal(productId) {
             const product = products.find(p => p.id == productId);
@@ -488,40 +518,10 @@
              if(product) {
                  const variant = product.variants.find(v => v.id == variantId);
                  if(variant) {
-                     // Update app's local memory of stock for that store
                      variant.inventory[currentStore] = newQty;
                  }
-                 // IMPORTANT: Also update the status locally so badge changes immediately without refresh
                  product.status = newStatus.toUpperCase(); 
              }
-        }
-
-        async function saveInventoryChanges() {
-            if (!currentEditingProductId) return;
-            const product = products.find(p => p.id == currentEditingProductId);
-            const inputs = document.querySelectorAll('#modalVariantsContainer input');
-            
-            for (const input of inputs) {
-                const variantId = input.getAttribute('data-variant-id');
-                const inventoryItemId = input.getAttribute('data-inventory-item-id');
-                const newQty = parseInt(input.value) || 0;
-                
-                const variant = product.variants.find(v => v.id == variantId);
-                const oldQty = variant.inventory[currentStore];
-                
-                if (newQty !== oldQty) {
-                    const payload = {
-                        action: 'updateInventory',
-                        productId: product.id,
-                        variantId: variantId,
-                        inventoryItemId: inventoryItemId,
-                        store: currentStore,
-                        quantity: newQty,
-                        otherStoresData: variant.inventory
-                    };
-                    await updateInventoryOnServer(payload);
-                }
-            }
         }
 
         function showToast(message) {
