@@ -10,20 +10,14 @@
     <style>
         body { background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; }
         
-        /* 3:2 Ratio Enforced */
         .retro-img-container { 
-            aspect-ratio: 3:2; 
+            aspect-ratio: 3 / 2; 
             overflow: hidden; 
             background-color: #e2e8f0; 
             cursor: pointer;
             position: relative;
         }
-        .retro-img { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover; 
-            transition: transform 0.3s ease; 
-        }
+        .retro-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
         .product-card:hover .retro-img { transform: scale(1.05); }
         
         .retro-img-container::after {
@@ -56,12 +50,19 @@
             margin: 20px auto;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Notification Animation */
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-down { animation: slideDown 0.5s ease-out forwards; }
     </style>
 </head>
 <body class="text-slate-800 relative">
 
     <script>
-        // *** IMPORTANT: REPLACE WITH YOUR NEW DEPLOYED URL IF CHANGED ***
+        // *** IMPORTANT: DEPLOY BACKEND AND PASTE NEW URL HERE ***
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzZLIADFPhsYJW8wABKi3CGBvoRklmMAD5QMZJVntCoJBeJVT7JCKQrZbJ7vehVZII/exec";
         
         const STORE_CREDENTIALS = {
@@ -109,6 +110,17 @@
         </div>
     </div>
 
+    <!-- NOTIFICATION BAR (Dynamic) -->
+    <div id="notificationBar" class="hidden bg-blue-600 text-white px-4 py-3 cursor-pointer hover:bg-blue-700 transition-colors shadow-md relative z-30" onclick="applyNotificationFilter()">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="bg-white/20 p-1.5 rounded-full"><i class="fa-solid fa-bell text-sm"></i></span>
+                <span id="notificationText" class="font-medium text-sm">...</span>
+            </div>
+            <i class="fa-solid fa-arrow-right text-xs opacity-75"></i>
+        </div>
+    </div>
+
     <!-- MAIN APP CONTENT -->
     <div class="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-4">
@@ -139,7 +151,7 @@
     <div class="max-w-full mx-auto px-4 py-6">
         <div id="loadingState" class="hidden text-center py-20">
             <div class="loader"></div>
-            <p class="text-gray-500">Fetching products & collections...</p>
+            <p class="text-gray-500">Fetching products & notifications...</p>
         </div>
 
         <div id="statsBar" class="hidden flex justify-between items-center mb-6 max-w-7xl mx-auto">
@@ -153,7 +165,6 @@
             <p class="text-gray-500">Select a Collection or Search to view live inventory.</p>
         </div>
 
-        <!-- PRODUCT GRID UPDATE: 2 cols mobile, 5 cols XL -->
         <div id="productGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 hidden"></div>
         
         <div id="emptyState" class="hidden text-center py-20">
@@ -194,6 +205,7 @@
         let currentCollection = '';
         let currentSearch = '';
         let currentEditingProductId = null;
+        let pendingNotificationCollection = null;
 
         // --- AUTH & INIT ---
         const loginStoreSelect = document.getElementById('loginStoreSelect');
@@ -229,7 +241,8 @@
             document.getElementById('loadingState').classList.remove('hidden');
 
             try {
-                const response = await fetch(`${WEB_APP_URL}?action=getProducts`);
+                // Pass currentStore to backend to get specific notifications
+                const response = await fetch(`${WEB_APP_URL}?action=getProducts&store=${currentStore}`);
                 const data = await response.json();
 
                 if(data.status === 'success') {
@@ -238,6 +251,11 @@
                     document.getElementById('loadingState').classList.add('hidden');
                     document.getElementById('initialState').classList.remove('hidden');
                     showToast(`Loaded ${products.length} Products!`);
+                    
+                    // Handle Notification
+                    if (data.notifications) {
+                        showNotificationBar(data.notifications);
+                    }
                 } else {
                     alert("Error fetching data: " + data.message);
                 }
@@ -245,6 +263,33 @@
                 console.error(error);
                 alert("Failed to connect to backend.");
                 document.getElementById('loadingState').classList.add('hidden');
+            }
+        }
+
+        // --- NOTIFICATION LOGIC ---
+        function showNotificationBar(notification) {
+            const bar = document.getElementById('notificationBar');
+            const text = document.getElementById('notificationText');
+            
+            text.innerText = `${notification.msg} • Click to View`;
+            pendingNotificationCollection = notification.collection;
+            
+            bar.classList.remove('hidden');
+            bar.classList.add('animate-slide-down');
+        }
+
+        function applyNotificationFilter() {
+            if (pendingNotificationCollection) {
+                const select = document.getElementById('collectionFilter');
+                select.value = pendingNotificationCollection;
+                
+                // Trigger change manually
+                currentCollection = pendingNotificationCollection;
+                renderProducts();
+                
+                // Hide bar
+                document.getElementById('notificationBar').classList.add('hidden');
+                showToast(`Filtered by ${pendingNotificationCollection}`);
             }
         }
 
@@ -262,7 +307,7 @@
             saveBtn.classList.add('opacity-75');
 
             try {
-                // 2. Loop through ALL visible variants and force update
+                // 2. Loop through visible variants
                 for (const input of inputs) {
                     const variantId = input.getAttribute('data-variant-id');
                     const inventoryItemId = input.getAttribute('data-inventory-item-id');
@@ -277,21 +322,18 @@
                         inventoryItemId: inventoryItemId,
                         store: currentStore,
                         quantity: newQty,
-                        otherStoresData: variant.inventory
+                        otherStoresData: variant.inventory,
+                        collectionName: currentCollection // Pass collection for logging
                     };
                     
                     await sendUpdateToBackend(payload);
                 }
-
-                // 3. Success State
                 showToast("Inventory Synced Successfully!");
                 renderProducts();
                 closeModal();
-
             } catch (error) {
                 alert("Update Failed: " + error.message);
             } finally {
-                // 4. Reset UI
                 saveBtn.disabled = false;
                 document.getElementById('saveBtnText').innerText = originalText;
                 saveBtn.classList.remove('opacity-75');
@@ -350,18 +392,18 @@
         }
 
         function getProductStatus(product) {
-            let totalCalculatedStock = 0;
+            // FIXED: Directly use Shopify Status (Source of Truth)
+            const status = product.status ? product.status.toUpperCase() : 'DRAFT';
+            
+            // FIXED: Directly use actual Shopify Inventory Quantity
+            let totalShopifyStock = 0;
             product.variants.forEach(v => {
-                const d = v.inventory.dhanmondi || 0;
-                const b = v.inventory.banani || 0;
-                const u = v.inventory.uttara || 0;
-                totalCalculatedStock += (d + b + u);
+                totalShopifyStock += (v.actualShopifyStock || 0);
             });
 
-            const status = totalCalculatedStock > 0 ? 'ACTIVE' : 'DRAFT';
             const colorClass = status === 'ACTIVE' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200';
             
-            return { totalStock: totalCalculatedStock, status, colorClass };
+            return { totalStock: totalShopifyStock, status, colorClass };
         }
 
         function renderProducts() {
@@ -411,8 +453,8 @@
                 if(product.variants.length > 0) {
                     variantBreakdownHtml = '<div class="flex flex-wrap gap-1 mt-1.5">';
                     product.variants.forEach(v => {
-                         const totalVarStock = (v.inventory.dhanmondi || 0) + (v.inventory.banani || 0) + (v.inventory.uttara || 0);
-                         
+                         // FIXED: Use actualShopifyStock for the badge breakdown
+                         const totalVarStock = v.actualShopifyStock || 0;
                          const displayName = v.title.replace('Size ', '').replace(' / ', '-').substring(0, 10);
                          const color = totalVarStock > 0 ? 'text-gray-700 font-medium bg-gray-100' : 'text-gray-400 bg-gray-50';
                          variantBreakdownHtml += `<span class="text-[10px] px-1.5 py-0.5 rounded border border-gray-100 ${color}">${displayName}: ${totalVarStock}</span>`;
@@ -455,7 +497,6 @@
         }
 
         // --- MODAL LOGIC ---
-
         function openModal(productId) {
             const product = products.find(p => p.id == productId);
             if (!product) return;
@@ -519,6 +560,8 @@
                  const variant = product.variants.find(v => v.id == variantId);
                  if(variant) {
                      variant.inventory[currentStore] = newQty;
+                     // Optional: Optimistically update actualShopifyStock if you want instant feedback
+                     // But for now, we rely on the status update
                  }
                  product.status = newStatus.toUpperCase(); 
              }
@@ -533,7 +576,6 @@
             }, 3000);
         }
 
-        // Listeners
         document.getElementById('searchInput').addEventListener('input', (e) => { currentSearch = e.target.value; renderProducts(); });
         document.getElementById('collectionFilter').addEventListener('change', (e) => { currentCollection = e.target.value; renderProducts(); });
 
