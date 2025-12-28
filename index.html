@@ -1,44 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- ... existing head ... -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Store Manager</title>
-    <!-- ... pwa meta tags ... -->
+    <title>Website Inventory</title>
+    
+    <!-- PWA / Mobile App Settings -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#ffffff">
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="apple-touch-icon" href="logo.png">
+    
+    <!-- Base64 Manifest for PWA -->
     <link rel="manifest" id="manifest-placeholder">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        /* ... existing styles ... */
         body { background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
         .retro-img-container { aspect-ratio: 3:2; overflow: hidden; background-color: #e2e8f0; cursor: pointer; position: relative; }
         .retro-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
         .product-card:hover .retro-img { transform: scale(1.05); }
         .retro-img-container::after { content: '\f00e'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; opacity: 0; transition: opacity 0.3s ease; text-shadow: 0 2px 4px rgba(0,0,0,0.5); pointer-events: none; }
         .retro-img-container:hover::after { opacity: 1; }
+        
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid #16a34a; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .animate-slide-down { animation: slideDown 0.5s ease-out forwards; }
+
+        /* Custom Searchable Dropdown Styles */
         .custom-select-wrapper { position: relative; width: 100%; }
-        .custom-select-trigger { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; cursor: pointer; font-size: 0.875rem; line-height: 1.25rem; white-space: nowrap; overflow: hidden; }
-        .custom-options { position: absolute; display: none; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); z-index: 50; margin-top: 4px; }
+        .custom-select-trigger {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.5rem 0.75rem; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem;
+            cursor: pointer; font-size: 0.875rem; line-height: 1.25rem; white-space: nowrap; overflow: hidden;
+        }
+        .custom-options {
+            position: absolute; display: none; top: 100%; left: 0; right: 0;
+            background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); z-index: 50; margin-top: 4px;
+        }
         .custom-options.open { display: block; }
         .option { padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.875rem; color: #4b5563; }
         .option:hover { background-color: #f3f4f6; color: #111827; }
         .option.selected { background-color: #eff6ff; color: #1d4ed8; font-weight: 600; }
-        .search-in-dropdown { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; background: white; z-index: 10; }
+        .search-in-dropdown {
+            padding: 0.5rem; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; background: white; z-index: 10;
+        }
         
         /* New Styles for Admin Notification Bell */
         .notification-bell { position: relative; cursor: pointer; }
@@ -50,23 +66,44 @@
 <body class="text-slate-800 relative">
 
     <script>
-        // *** REPLACE WITH NEW DEPLOYMENT URL ***
+        // *** IMPORTANT: REPLACE WITH NEW DEPLOYMENT URL ***
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzZLIADFPhsYJW8wABKi3CGBvoRklmMAD5QMZJVntCoJBeJVT7JCKQrZbJ7vehVZII/exec";
         
-        // ... pwa manifest logic ...
+        // --- PWA MANIFEST INJECTION ---
         window.addEventListener('DOMContentLoaded', () => {
-            const manifest = { "name": "Store Manager", "short_name": "Inventory", "start_url": window.location.href, "display": "standalone", "background_color": "#ffffff", "theme_color": "#16a34a", "icons": [{ "src": "logo.png", "sizes": "192x192", "type": "image/png" }, { "src": "logo.png", "sizes": "512x512", "type": "image/png" }] };
-            const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-            document.querySelector('#manifest-placeholder').setAttribute('href', URL.createObjectURL(blob));
+            const manifest = {
+                "name": "Store Manager",
+                "short_name": "Inventory",
+                "start_url": window.location.href, // Dynamic Start URL
+                "display": "standalone",
+                "background_color": "#ffffff",
+                "theme_color": "#16a34a",
+                "icons": [
+                    { "src": "logo.png", "sizes": "192x192", "type": "image/png" },
+                    { "src": "logo.png", "sizes": "512x512", "type": "image/png" }
+                ]
+            };
+            const stringManifest = JSON.stringify(manifest);
+            const blob = new Blob([stringManifest], {type: 'application/json'});
+            const manifestURL = URL.createObjectURL(blob);
+            
+            const linkTag = document.querySelector('#manifest-placeholder');
+            if (linkTag) {
+                linkTag.setAttribute('href', manifestURL);
+            }
         });
     </script>
 
-    <!-- ... Login Overlay (Same as before) ... -->
+    <!-- LOGIN OVERLAY -->
     <div id="loginOverlay" class="fixed inset-0 z-[100] bg-gray-900 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
             <div class="bg-green-600 h-2"></div>
             <div class="p-8">
-                <div class="text-center mb-8"><i class="fa-brands fa-shopify text-5xl text-green-600 mb-4"></i><h1 class="text-2xl font-bold text-gray-800">Store Login</h1><p class="text-sm text-gray-500">Access Live Shopify Inventory</p></div>
+                <div class="text-center mb-8">
+                    <i class="fa-brands fa-shopify text-5xl text-green-600 mb-4"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">Store Login</h1>
+                    <p class="text-sm text-gray-500">Access Live Shopify Inventory</p>
+                </div>
                 <div class="space-y-4">
                     <select id="loginStoreSelect" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500">
                         <option value="" disabled selected>Select Your Store</option>
@@ -75,29 +112,39 @@
                         <option value="banani">Banani Store</option>
                         <option value="uttara">Uttara Store</option>
                     </select>
-                    <div id="passwordFieldWrapper" class="hidden"><input type="password" id="loginPassword" placeholder="Enter Store Password" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500"></div>
-                    <button id="loginBtn" onclick="attemptLogin()" class="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2" disabled><span>Access Dashboard</span></button>
+                    <div id="passwordFieldWrapper" class="hidden">
+                        <input type="password" id="loginPassword" placeholder="Enter Store Password" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <button id="loginBtn" onclick="attemptLogin()" class="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2" disabled>
+                        <span>Access Dashboard</span>
+                    </button>
                     <p id="loginError" class="text-red-500 text-xs mt-2 hidden text-center">Incorrect password</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ... Preview Modal (Same as before) ... -->
+    <!-- PREVIEW MODAL -->
     <div id="imagePreviewModal" class="fixed inset-0 z-[150] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-sm opacity-0 transition-opacity duration-300" onclick="closeImagePreview(event)">
         <div class="relative max-w-5xl w-full max-h-screen flex flex-col items-center justify-center" onclick="event.stopPropagation()">
             <button onclick="closeImagePreview(null, true)" class="absolute -top-12 right-0 md:right-0 md:-top-10 text-white/70 hover:text-white transition-colors z-50"><i class="fa-solid fa-times text-3xl"></i></button>
-            <img id="previewImage" src="" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-gray-800"><h3 id="previewTitle" class="text-white/90 mt-4 text-lg font-medium text-center tracking-wide"></h3>
+            <img id="previewImage" src="" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-gray-800">
+            <h3 id="previewTitle" class="text-white/90 mt-4 text-lg font-medium text-center tracking-wide"></h3>
         </div>
     </div>
 
-    <!-- HEADER -->
+    <!-- HEADER (Redesigned for Mobile) -->
     <div class="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-3 py-3">
+            
+            <!-- Top Row: Title & Store Info -->
             <div class="flex justify-between items-start mb-3">
                 <div class="flex items-center gap-2">
                     <i class="fa-brands fa-shopify text-2xl text-green-600"></i>
-                    <div><h1 class="font-bold text-base leading-tight text-gray-800">Store Manager</h1><p class="text-[10px] text-gray-500">Shopify Sync</p></div>
+                    <div>
+                        <h1 class="font-bold text-base leading-tight text-gray-800">Store Manager</h1>
+                        <p class="text-[10px] text-gray-500">Shopify Sync</p>
+                    </div>
                 </div>
                 
                 <div class="text-right flex items-center gap-3">
@@ -124,19 +171,31 @@
                 </div>
             </div>
             
+            <!-- Controls Row: One Line on Mobile -->
             <div class="flex items-center gap-2 w-full">
-                <!-- Dropdown & Controls (Same as before) -->
+                
+                <!-- Custom Searchable Dropdown (Flex Grow) -->
                 <div class="custom-select-wrapper flex-1 min-w-0" id="customDropdown">
                     <div class="custom-select-trigger" onclick="toggleDropdown()">
                         <span id="dropdownSelectedText" class="truncate">Select Collection</span>
                         <i class="fa-solid fa-chevron-down text-xs text-gray-400 ml-2"></i>
                     </div>
                     <div class="custom-options shadow-xl" id="dropdownOptions">
-                        <div class="search-in-dropdown"><input type="text" id="dropdownSearchInput" placeholder="Search collection..." class="w-full text-xs p-2 border border-gray-200 rounded bg-gray-50 focus:outline-none focus:border-blue-500" onclick="event.stopPropagation()" oninput="filterDropdownOptions()"></div>
-                        <div class="max-h-48 overflow-y-auto custom-scroll" id="dropdownListContainer"></div>
+                        <div class="search-in-dropdown">
+                            <input type="text" id="dropdownSearchInput" placeholder="Search collection..." class="w-full text-xs p-2 border border-gray-200 rounded bg-gray-50 focus:outline-none focus:border-blue-500" onclick="event.stopPropagation()" oninput="filterDropdownOptions()">
+                        </div>
+                        <div class="max-h-48 overflow-y-auto custom-scroll" id="dropdownListContainer">
+                            <!-- Options injected here -->
+                        </div>
                     </div>
                 </div>
-                <button onclick="clearFilters()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center border border-gray-300 transition-colors" title="Reset"><i class="fa-solid fa-rotate-left text-xs"></i></button>
+
+                <!-- Clear Button (Fixed Width) -->
+                <button onclick="clearFilters()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center border border-gray-300 transition-colors" title="Reset">
+                    <i class="fa-solid fa-rotate-left text-xs"></i>
+                </button>
+
+                <!-- Search Input (Flex Grow) -->
                 <div class="relative flex-1 min-w-0">
                     <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400 text-xs"></i>
                     <input type="text" id="searchInput" placeholder="Search..." class="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs font-medium focus:outline-none focus:border-green-500">
@@ -145,7 +204,7 @@
         </div>
     </div>
 
-    <!-- GENERAL USER NOTIFICATIONS (Hidden for Admin) -->
+    <!-- NOTIFICATIONS -->
     <div id="notificationsContainer" class="max-w-7xl mx-auto px-4 mt-2 hidden">
         <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 shadow-sm">
             <h3 class="text-xs font-bold text-blue-800 mb-2 flex items-center gap-2"><i class="fa-solid fa-bell text-blue-600"></i> Updates</h3>
@@ -155,10 +214,12 @@
 
     <!-- MAIN BODY -->
     <div class="max-w-full mx-auto px-4 py-4">
+        
         <!-- Stats & Sorting -->
         <div id="statsBar" class="hidden flex justify-between items-center mb-4 max-w-7xl mx-auto">
             <h2 class="text-lg font-bold text-gray-700">Inventory</h2>
             <div class="flex items-center gap-2">
+                <!-- SORTING DROPDOWN -->
                 <select id="sortFilter" class="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-green-500 bg-white text-gray-700 h-8">
                     <option value="CREATED_AT:true" selected>Date, new to old</option>
                     <option value="CREATED_AT:false">Date, old to new</option>
@@ -169,6 +230,7 @@
                     <option value="BEST_SELLING:false">Best selling</option>
                     <option value="MANUAL:false">Featured</option>
                 </select>
+                
                 <div class="text-xs text-gray-500 bg-white px-2 py-1 rounded border h-8 flex items-center">Count: <span id="productCount" class="font-bold text-black ml-1">0</span></div>
             </div>
         </div>
@@ -179,16 +241,32 @@
                 <div class="text-green-600 text-5xl mb-4"><i class="fa-solid fa-boxes-stacked"></i></div>
                 <h2 class="text-xl font-bold text-gray-700 mb-2">Inventory Ready</h2>
                 <p class="text-sm text-gray-500">Select a collection or search to begin.</p>
+                <button id="installAppBtn" class="hidden mt-6 bg-gray-900 text-white text-xs px-4 py-2 rounded-full mx-auto"><i class="fa-solid fa-download mr-1"></i> Install App</button>
             </div>
         </div>
 
-        <div id="loadingState" class="hidden text-center py-20"><div class="loader"></div><p id="loadingText" class="text-xs text-gray-500 mt-2">Loading...</p></div>
+        <div id="loadingState" class="hidden text-center py-20">
+            <div class="loader"></div>
+            <p id="loadingText" class="text-xs text-gray-500 mt-2">Loading...</p>
+        </div>
+
+        <!-- Product Grid -->
         <div id="productGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 hidden"></div>
-        <div id="loadMoreContainer" class="hidden text-center mt-8 pb-10"><button onclick="loadMoreProducts()" class="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-6 py-2 rounded-full hover:bg-gray-50 shadow-sm transition-all">Load More <i class="fa-solid fa-arrow-down ml-1"></i></button></div>
-        <div id="emptyState" class="hidden text-center py-16"><div class="text-gray-300 text-4xl mb-2"><i class="fa-solid fa-box-open"></i></div><p class="text-sm text-gray-500">No results found.</p></div>
+        
+        <!-- LOAD MORE BUTTON -->
+        <div id="loadMoreContainer" class="hidden text-center mt-8 pb-10">
+            <button onclick="loadMoreProducts()" class="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-6 py-2 rounded-full hover:bg-gray-50 shadow-sm transition-all">
+                Load More <i class="fa-solid fa-arrow-down ml-1"></i>
+            </button>
+        </div>
+
+        <div id="emptyState" class="hidden text-center py-16">
+            <div class="text-gray-300 text-4xl mb-2"><i class="fa-solid fa-box-open"></i></div>
+            <p class="text-sm text-gray-500">No results found.</p>
+        </div>
     </div>
 
-    <!-- MODAL (Same as before) -->
+    <!-- MODAL -->
     <div id="variantModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
             <div class="bg-gray-50 px-5 py-3 border-b flex justify-between items-center">
@@ -219,8 +297,28 @@
         let selectedCollectionId = "";
         let notificationInterval = null;
 
-        // ... pwa & auth scripts (same as before) ...
-        // ... (Keep existing PWA, Auth logic here) ...
+        // --- PWA SERVICE WORKER REGISTRATION (Inline) ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `self.addEventListener('install', (e) => e.waitUntil(self.skipWaiting()));self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));self.addEventListener('fetch', (e) => {});`;
+                const blob = new Blob([swCode], {type: 'application/javascript'});
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).catch(e => console.log("SW Fail:", e));
+            });
+        }
+
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault(); deferredPrompt = e;
+            const btn = document.getElementById('installAppBtn');
+            btn.classList.remove('hidden');
+            btn.addEventListener('click', () => {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((result) => { if (result.outcome === 'accepted') btn.classList.add('hidden'); deferredPrompt = null; });
+            });
+        });
+
+        // --- AUTH & PERSISTENCE ---
         const loginStoreSelect = document.getElementById('loginStoreSelect');
         const passwordFieldWrapper = document.getElementById('passwordFieldWrapper');
         const loginBtn = document.getElementById('loginBtn');
@@ -238,10 +336,10 @@
         loginStoreSelect.addEventListener('change', function() { if(this.value) { passwordFieldWrapper.classList.remove('hidden'); loginBtn.disabled = false; } });
 
         async function attemptLogin() {
-            // ... (Same login logic) ...
             const selectedStore = loginStoreSelect.value;
             const password = document.getElementById('loginPassword').value;
             const btn = document.getElementById('loginBtn');
+            
             btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Checking...`;
             document.getElementById('loginError').classList.add('hidden');
 
@@ -251,6 +349,7 @@
                     body: JSON.stringify({ action: 'login', store: selectedStore, password: password })
                 });
                 const data = await response.json();
+
                 if (data.status === 'success') {
                     localStorage.setItem('storeUser', selectedStore);
                     currentStore = selectedStore;
@@ -266,139 +365,10 @@
                 btn.disabled = false; btn.innerHTML = `<span>Access Dashboard</span>`;
             }
         }
+
         function logout() { localStorage.removeItem('storeUser'); location.reload(); }
 
-        // --- FETCHING (Modified for Real-time Notifications) ---
-        async function loadInitialData() {
-            toggleLoading(true, "Loading...");
-            try {
-                // Initial Fetch
-                await fetchData();
-                
-                // Start Real-time Notification Check (Every 30s)
-                if (notificationInterval) clearInterval(notificationInterval);
-                notificationInterval = setInterval(fetchNotificationsOnly, 30000); 
-
-            } catch (e) { console.error(e); toggleLoading(false); }
-        }
-
-        async function fetchData() {
-            const response = await fetch(`${WEB_APP_URL}?action=getInitialData&store=${currentStore}`);
-            const data = await response.json();
-            if(data.status === 'success') {
-                collectionsList = data.collections.sort((a, b) => a.title.localeCompare(b.title));
-                populateCustomDropdown(collectionsList);
-                handleNotifications(data.notifications);
-                document.getElementById('initialState').classList.remove('hidden');
-                document.getElementById('loadingState').classList.add('hidden');
-            }
-        }
-
-        async function fetchNotificationsOnly() {
-            // Background check for notifications only
-            try {
-                const response = await fetch(`${WEB_APP_URL}?action=getInitialData&store=${currentStore}`);
-                const data = await response.json();
-                if(data.status === 'success' && data.notifications) {
-                    handleNotifications(data.notifications);
-                }
-            } catch(e) {}
-        }
-
-        function handleNotifications(notifications) {
-            if (currentStore === 'admin') {
-                // ADMIN LOGIC: Bell Icon & Popup
-                document.getElementById('adminBellContainer').classList.remove('hidden');
-                document.getElementById('notificationsContainer').classList.add('hidden'); // Hide normal list
-                
-                const list = document.getElementById('adminNotificationList');
-                const dot = document.getElementById('adminBellDot');
-                
-                if (notifications.length > 0) {
-                    dot.style.display = 'block';
-                    list.innerHTML = '';
-                    notifications.forEach(notif => {
-                        const div = document.createElement('div');
-                        div.className = 'p-3 hover:bg-gray-50 cursor-pointer flex items-start gap-2 border-b border-gray-50 last:border-0';
-                        div.innerHTML = `
-                            <div class="bg-blue-100 text-blue-600 w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] mt-0.5"><i class="fa-solid fa-store"></i></div>
-                            <div>
-                                <p class="text-xs text-gray-800">${notif.msg}</p>
-                                <p class="text-[10px] text-gray-400 mt-1">${new Date(notif.time).toLocaleTimeString()}</p>
-                            </div>
-                        `;
-                        div.onclick = () => { applyNotificationFilter(notif.collection); toggleAdminNotifications(); };
-                        list.appendChild(div);
-                    });
-                } else {
-                    dot.style.display = 'none';
-                    list.innerHTML = '<div class="p-4 text-center text-xs text-gray-400">No recent updates</div>';
-                }
-
-            } else {
-                // STORE USER LOGIC: List below header
-                document.getElementById('adminBellContainer').classList.add('hidden');
-                if (notifications.length > 0) {
-                    renderNotifications(notifications);
-                } else {
-                    document.getElementById('notificationsContainer').classList.add('hidden');
-                }
-            }
-        }
-
-        function toggleAdminNotifications() {
-            document.getElementById('adminNotificationPopup').classList.toggle('open');
-        }
-
-        // Close admin popup if clicked outside
-        document.addEventListener('click', function(e) {
-            const bell = document.getElementById('adminBellContainer');
-            if (bell && !bell.contains(e.target)) {
-                document.getElementById('adminNotificationPopup').classList.remove('open');
-            }
-        });
-
-        // ... (Keep existing search, update, modal logic same as before) ...
-        // ... (Keep performSearch, saveInventoryChanges, renderProducts, etc.) ...
-        
-        async function performSearch(query, collectionId, cursor = null) {
-            if(!cursor) {
-                document.getElementById('initialState').classList.add('hidden');
-                document.getElementById('loadMoreContainer').classList.add('hidden');
-                toggleLoading(true, "Searching...");
-            } else {
-                document.querySelector('#loadMoreContainer button').innerText = "Loading...";
-            }
-
-            try {
-                const sortValue = document.getElementById('sortFilter').value;
-                const [sortKey, reverse] = sortValue.split(':');
-
-                let url = `${WEB_APP_URL}?action=searchProducts`;
-                if(query) url += `&query=${encodeURIComponent(query)}`;
-                if(collectionId) url += `&collectionId=${encodeURIComponent(collectionId)}`;
-                if(cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
-                url += `&sortKey=${sortKey}&reverse=${reverse}`;
-
-                const response = await fetch(url);
-                const data = await response.json();
-
-                if(data.status === 'success') {
-                    if (cursor) { products = products.concat(data.products); } 
-                    else { products = data.products; }
-                    lastCursor = data.pageInfo.endCursor;
-                    hasMoreProducts = data.pageInfo.hasNextPage;
-                    renderProducts();
-                } else {
-                    if(!cursor) { products = []; renderProducts(); }
-                }
-            } catch (e) { console.error(e); } 
-            finally { 
-                toggleLoading(false); 
-                document.querySelector('#loadMoreContainer button').innerHTML = 'Load More <i class="fa-solid fa-arrow-down ml-1"></i>';
-            }
-        }
-
+        // --- OPTIMISTIC UI UPDATE ---
         async function saveInventoryChanges() {
             if (!currentEditingProductId) return;
             const product = products.find(p => p.id == currentEditingProductId);
@@ -437,20 +407,116 @@
             }
         }
 
-        // --- RENDER ---
-        function renderNotifications(notifications) {
-            const list = document.getElementById('notificationList');
-            list.innerHTML = ''; 
-            notifications.forEach(notif => {
-                const item = document.createElement('div');
-                item.className = 'flex justify-between items-center bg-white p-2 rounded border border-blue-100 shadow-sm';
-                item.innerHTML = `<div class="flex items-center gap-2"><span class="bg-blue-100 text-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"><i class="fa-solid fa-pen"></i></span><div class="text-xs text-gray-700 truncate max-w-[200px]"><span class="font-bold text-gray-900">${notif.msg.split(' updated ')[0]}</span> updated <span class="font-bold text-blue-600">${notif.collection}</span></div></div><button onclick="applyNotificationFilter('${notif.collection}')" class="text-[10px] bg-gray-900 text-white px-3 py-1 rounded transition-colors">View</button>`;
-                list.appendChild(item);
-            });
-            document.getElementById('notificationsContainer').classList.remove('hidden');
+        // --- FETCHING ---
+        async function loadInitialData() {
+            toggleLoading(true, "Loading...");
+            try {
+                await fetchData();
+                if (notificationInterval) clearInterval(notificationInterval);
+                notificationInterval = setInterval(fetchNotificationsOnly, 30000); 
+            } catch (e) { console.error(e); toggleLoading(false); }
         }
 
-        // ... (Keep existing dropdown, preview, toast, helpers) ...
+        async function fetchData() {
+            const response = await fetch(`${WEB_APP_URL}?action=getInitialData&store=${currentStore}`);
+            const data = await response.json();
+            if(data.status === 'success') {
+                collectionsList = data.collections.sort((a, b) => a.title.localeCompare(b.title));
+                populateCustomDropdown(collectionsList);
+                handleNotifications(data.notifications);
+                document.getElementById('initialState').classList.remove('hidden');
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+        }
+
+        async function fetchNotificationsOnly() {
+            try {
+                const response = await fetch(`${WEB_APP_URL}?action=getInitialData&store=${currentStore}`);
+                const data = await response.json();
+                if(data.status === 'success' && data.notifications) {
+                    handleNotifications(data.notifications);
+                }
+            } catch(e) {}
+        }
+
+        function handleNotifications(notifications) {
+            if (currentStore === 'admin') {
+                document.getElementById('adminBellContainer').classList.remove('hidden');
+                document.getElementById('notificationsContainer').classList.add('hidden');
+                const list = document.getElementById('adminNotificationList');
+                const dot = document.getElementById('adminBellDot');
+                
+                if (notifications.length > 0) {
+                    dot.style.display = 'block';
+                    list.innerHTML = '';
+                    notifications.forEach(notif => {
+                        const div = document.createElement('div');
+                        div.className = 'p-3 hover:bg-gray-50 cursor-pointer flex items-start gap-2 border-b border-gray-50 last:border-0';
+                        div.innerHTML = `<div class="bg-blue-100 text-blue-600 w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] mt-0.5"><i class="fa-solid fa-store"></i></div><div><p class="text-xs text-gray-800">${notif.msg}</p><p class="text-[10px] text-gray-400 mt-1">${new Date(notif.time).toLocaleTimeString()}</p></div>`;
+                        div.onclick = () => { applyNotificationFilter(notif.collection); toggleAdminNotifications(); };
+                        list.appendChild(div);
+                    });
+                } else {
+                    dot.style.display = 'none';
+                    list.innerHTML = '<div class="p-4 text-center text-xs text-gray-400">No recent updates</div>';
+                }
+            } else {
+                document.getElementById('adminBellContainer').classList.add('hidden');
+                if (notifications.length > 0) { renderNotifications(notifications); } 
+                else { document.getElementById('notificationsContainer').classList.add('hidden'); }
+            }
+        }
+
+        function toggleAdminNotifications() { document.getElementById('adminNotificationPopup').classList.toggle('open'); }
+        document.addEventListener('click', function(e) {
+            const bell = document.getElementById('adminBellContainer');
+            if (bell && !bell.contains(e.target)) { document.getElementById('adminNotificationPopup').classList.remove('open'); }
+        });
+
+        async function performSearch(query, collectionId, cursor = null) {
+            if(!cursor) {
+                document.getElementById('initialState').classList.add('hidden');
+                document.getElementById('loadMoreContainer').classList.add('hidden');
+                toggleLoading(true, "Searching...");
+            } else {
+                document.querySelector('#loadMoreContainer button').innerText = "Loading...";
+            }
+
+            try {
+                const sortValue = document.getElementById('sortFilter').value;
+                const [sortKey, reverse] = sortValue.split(':');
+
+                let url = `${WEB_APP_URL}?action=searchProducts`;
+                if(query) url += `&query=${encodeURIComponent(query)}`;
+                if(collectionId) url += `&collectionId=${encodeURIComponent(collectionId)}`;
+                if(cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+                url += `&sortKey=${sortKey}&reverse=${reverse}`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if(data.status === 'success') {
+                    if (cursor) { products = products.concat(data.products); } 
+                    else { products = data.products; }
+                    lastCursor = data.pageInfo.endCursor;
+                    hasMoreProducts = data.pageInfo.hasNextPage;
+                    renderProducts();
+                } else {
+                    if(!cursor) { products = []; renderProducts(); }
+                }
+            } catch (e) { console.error(e); } 
+            finally { 
+                toggleLoading(false); 
+                document.querySelector('#loadMoreContainer button').innerHTML = 'Load More <i class="fa-solid fa-arrow-down ml-1"></i>';
+            }
+        }
+
+        document.getElementById('sortFilter').addEventListener('change', () => {
+            const query = document.getElementById('searchInput').value;
+            performSearch(query, selectedCollectionId, null);
+        });
+
+        // --- DROPDOWN & UI ---
         function populateCustomDropdown(list) {
             const container = document.getElementById('dropdownListContainer');
             container.innerHTML = '';
@@ -561,9 +627,33 @@
             container.innerHTML = '';
             product.variants.forEach(variant => {
                 const currentStock = variant.inventory[currentStore] || 0;
+                
+                // NEW: Calculate where stock is available
+                let stockLocation = [];
+                if ((variant.inventory.dhanmondi || 0) > 0) stockLocation.push("Dhanmondi");
+                if ((variant.inventory.banani || 0) > 0) stockLocation.push("Banani");
+                if ((variant.inventory.uttara || 0) > 0) stockLocation.push("Uttara");
+
+                let stockDisplayHtml = "";
+                if (stockLocation.length > 0) {
+                    stockDisplayHtml = `<p class="text-[9px] text-green-600 font-bold mt-0.5 uppercase tracking-tight"><i class="fa-solid fa-location-dot mr-1"></i>${stockLocation.join(', ')}</p>`;
+                } else {
+                    stockDisplayHtml = `<p class="text-[9px] text-gray-400 mt-0.5">No stock in branches</p>`;
+                }
+
                 const div = document.createElement('div');
                 div.className = 'flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100 mb-3 last:mb-0';
-                div.innerHTML = `<div class="flex-1 min-w-0 pr-2"><p class="font-semibold text-gray-700 text-xs truncate">${variant.title}</p><p class="text-[10px] text-gray-400 font-mono truncate">${variant.sku}</p></div><div class="flex items-center gap-2"><button onclick="adjustInput('input-${variant.id}', -1)" class="w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100 text-gray-600"><i class="fa-solid fa-minus text-[10px]"></i></button><input type="number" id="input-${variant.id}" value="${currentStock}" min="0" class="w-12 text-center font-bold text-gray-800 bg-white border border-gray-300 rounded py-1 text-sm focus:ring-2 focus:ring-blue-500 outline-none" data-variant-id="${variant.id}" data-inventory-item-id="${variant.inventoryItemId}"><button onclick="adjustInput('input-${variant.id}', 1)" class="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800"><i class="fa-solid fa-plus text-[10px]"></i></button></div>`;
+                div.innerHTML = `
+                    <div class="flex-1 min-w-0 pr-2">
+                        <p class="font-semibold text-gray-700 text-xs truncate">${variant.title}</p>
+                        <p class="text-[10px] text-gray-400 font-mono truncate">${variant.sku}</p>
+                        ${stockDisplayHtml}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="adjustInput('input-${variant.id}', -1)" class="w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100 text-gray-600"><i class="fa-solid fa-minus text-[10px]"></i></button>
+                        <input type="number" id="input-${variant.id}" value="${currentStock}" min="0" class="w-12 text-center font-bold text-gray-800 bg-white border border-gray-300 rounded py-1 text-sm focus:ring-2 focus:ring-blue-500 outline-none" data-variant-id="${variant.id}" data-inventory-item-id="${variant.inventoryItemId}">
+                        <button onclick="adjustInput('input-${variant.id}', 1)" class="w-7 h-7 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800"><i class="fa-solid fa-plus text-[10px]"></i></button>
+                    </div>`;
                 container.appendChild(div);
             });
             document.getElementById('variantModal').classList.remove('hidden');
@@ -573,7 +663,17 @@
         function openImagePreview(src, title) { const m = document.getElementById('imagePreviewModal'); document.getElementById('previewImage').src = src; document.getElementById('previewTitle').innerText = title; m.classList.remove('hidden'); setTimeout(() => m.classList.remove('opacity-0'), 10); }
         function closeImagePreview(e, force) { if (force || e.target.id === 'imagePreviewModal') { const m = document.getElementById('imagePreviewModal'); m.classList.add('opacity-0'); setTimeout(() => m.classList.add('hidden'), 300); } }
         function showToast(msg) { const t = document.getElementById('toast'); document.getElementById('toastMsg').innerText = msg; t.classList.remove('translate-y-20', 'opacity-0'); setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 3000); }
-        
+        function renderNotifications(notifications) {
+            const list = document.getElementById('notificationList');
+            list.innerHTML = ''; 
+            notifications.forEach(notif => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center bg-white p-2 rounded border border-blue-100 shadow-sm';
+                item.innerHTML = `<div class="flex items-center gap-2"><span class="bg-blue-100 text-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"><i class="fa-solid fa-pen"></i></span><div class="text-xs text-gray-700 truncate max-w-[200px]"><span class="font-bold text-gray-900">${notif.msg.split(' updated ')[0]}</span> updated <span class="font-bold text-blue-600">${notif.collection}</span></div></div><button onclick="applyNotificationFilter('${notif.collection}')" class="text-[10px] bg-gray-900 text-white px-3 py-1 rounded transition-colors">View</button>`;
+                list.appendChild(item);
+            });
+            document.getElementById('notificationsContainer').classList.remove('hidden');
+        }
         function applyNotificationFilter(collectionTitle) {
             const list = document.querySelectorAll('.option');
             let foundId = "";
@@ -585,10 +685,6 @@
             clearTimeout(searchDebounceTimer);
             const val = e.target.value;
             if (val.length > 2) { lastCursor = null; searchDebounceTimer = setTimeout(() => { performSearch(val, null); }, 600); }
-        });
-        document.getElementById('sortFilter').addEventListener('change', () => {
-            const query = document.getElementById('searchInput').value;
-            performSearch(query, selectedCollectionId, null);
         });
     </script>
 </body>
