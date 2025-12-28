@@ -50,13 +50,6 @@
             margin: 20px auto;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* Notification Animation */
-        @keyframes slideDown {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .animate-slide-down { animation: slideDown 0.5s ease-out forwards; }
     </style>
 </head>
 <body class="text-slate-800 relative">
@@ -110,17 +103,6 @@
         </div>
     </div>
 
-    <!-- NOTIFICATION BAR (Dynamic) -->
-    <div id="notificationBar" class="hidden bg-blue-600 text-white px-4 py-3 cursor-pointer hover:bg-blue-700 transition-colors shadow-md relative z-30" onclick="applyNotificationFilter()">
-        <div class="max-w-7xl mx-auto flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <span class="bg-white/20 p-1.5 rounded-full"><i class="fa-solid fa-bell text-sm"></i></span>
-                <span id="notificationText" class="font-medium text-sm">...</span>
-            </div>
-            <i class="fa-solid fa-arrow-right text-xs opacity-75"></i>
-        </div>
-    </div>
-
     <!-- MAIN APP CONTENT -->
     <div class="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-4">
@@ -142,8 +124,26 @@
                 </select>
                 <div class="relative w-full md:w-64">
                     <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
-                    <input type="text" id="searchInput" placeholder="Search SKU or Name..." class="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500">
+                    <input type="text" id="searchInput" placeholder="Search SKU, Name or Type..." class="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500">
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SMART NOTIFICATIONS CONTAINER (Facebook Style) -->
+    <div id="notificationsContainer" class="max-w-7xl mx-auto px-4 mt-4 hidden">
+        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 shadow-sm">
+            <h3 class="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-bell text-blue-600"></i> Recent Updates
+            </h3>
+            <div id="notificationList" class="space-y-2">
+                <!-- Notifications will be injected here -->
+                <!-- Example: 
+                <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+                    <span class="text-sm text-gray-700"><span class="font-bold">Dhanmondi</span> updated <span class="font-bold">Limelight</span></span>
+                    <button class="text-xs bg-blue-600 text-white px-3 py-1 rounded">View</button>
+                </div> 
+                -->
             </div>
         </div>
     </div>
@@ -205,7 +205,6 @@
         let currentCollection = '';
         let currentSearch = '';
         let currentEditingProductId = null;
-        let pendingNotificationCollection = null;
 
         // --- AUTH & INIT ---
         const loginStoreSelect = document.getElementById('loginStoreSelect');
@@ -252,9 +251,11 @@
                     document.getElementById('initialState').classList.remove('hidden');
                     showToast(`Loaded ${products.length} Products!`);
                     
-                    // Handle Notification
-                    if (data.notifications) {
-                        showNotificationBar(data.notifications);
+                    // Handle Notifications (List Format)
+                    if (data.notifications && data.notifications.length > 0) {
+                        renderNotifications(data.notifications);
+                    } else {
+                        document.getElementById('notificationsContainer').classList.add('hidden');
                     }
                 } else {
                     alert("Error fetching data: " + data.message);
@@ -266,30 +267,47 @@
             }
         }
 
-        // --- NOTIFICATION LOGIC ---
-        function showNotificationBar(notification) {
-            const bar = document.getElementById('notificationBar');
-            const text = document.getElementById('notificationText');
-            
-            text.innerText = `${notification.msg} • Click to View`;
-            pendingNotificationCollection = notification.collection;
-            
-            bar.classList.remove('hidden');
-            bar.classList.add('animate-slide-down');
+        // --- NOTIFICATION UI LOGIC ---
+        function renderNotifications(notifications) {
+            const container = document.getElementById('notificationsContainer');
+            const list = document.getElementById('notificationList');
+            list.innerHTML = ''; // Clear previous
+
+            notifications.forEach(notif => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center bg-white p-3 rounded-lg border border-blue-100 shadow-sm hover:shadow-md transition-shadow';
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </span>
+                        <div class="text-sm text-gray-700">
+                            <span class="font-bold text-gray-900 capitalize">${notif.msg.split(' updated ')[0]}</span> 
+                            updated 
+                            <span class="font-bold text-blue-600">${notif.collection}</span>
+                        </div>
+                    </div>
+                    <button onclick="applyNotificationFilter('${notif.collection}')" class="text-xs bg-gray-900 hover:bg-gray-700 text-white font-medium px-4 py-1.5 rounded-lg transition-colors">
+                        View
+                    </button>
+                `;
+                list.appendChild(item);
+            });
+
+            container.classList.remove('hidden');
         }
 
-        function applyNotificationFilter() {
-            if (pendingNotificationCollection) {
-                const select = document.getElementById('collectionFilter');
-                select.value = pendingNotificationCollection;
-                
-                // Trigger change manually
-                currentCollection = pendingNotificationCollection;
+        function applyNotificationFilter(collectionName) {
+            const select = document.getElementById('collectionFilter');
+            select.value = collectionName;
+            
+            // If the collection exists in dropdown (it should)
+            if (select.value === collectionName) {
+                currentCollection = collectionName;
                 renderProducts();
-                
-                // Hide bar
-                document.getElementById('notificationBar').classList.add('hidden');
-                showToast(`Filtered by ${pendingNotificationCollection}`);
+                showToast(`Filtered by ${collectionName}`);
+                // Scroll to products
+                document.getElementById('statsBar').scrollIntoView({behavior: 'smooth'});
             }
         }
 
@@ -392,10 +410,8 @@
         }
 
         function getProductStatus(product) {
-            // FIXED: Directly use Shopify Status (Source of Truth)
             const status = product.status ? product.status.toUpperCase() : 'DRAFT';
             
-            // FIXED: Directly use actual Shopify Inventory Quantity
             let totalShopifyStock = 0;
             product.variants.forEach(v => {
                 totalShopifyStock += (v.actualShopifyStock || 0);
@@ -429,8 +445,10 @@
             
             const filteredProducts = products.filter(p => {
                 const matchesCollection = currentCollection === '' || (p.collections && p.collections.includes(currentCollection));
-                const matchesSearch = p.title.toLowerCase().includes(currentSearch.toLowerCase()) || 
-                                      p.variants.some(v => v.sku.toLowerCase().includes(currentSearch.toLowerCase()));
+                const searchLower = currentSearch.toLowerCase();
+                const matchesSearch = p.title.toLowerCase().includes(searchLower) || 
+                                      (p.type && p.type.toLowerCase().includes(searchLower)) ||
+                                      p.variants.some(v => v.sku.toLowerCase().includes(searchLower));
                 return matchesCollection && matchesSearch;
             });
 
@@ -453,7 +471,6 @@
                 if(product.variants.length > 0) {
                     variantBreakdownHtml = '<div class="flex flex-wrap gap-1 mt-1.5">';
                     product.variants.forEach(v => {
-                         // FIXED: Use actualShopifyStock for the badge breakdown
                          const totalVarStock = v.actualShopifyStock || 0;
                          const displayName = v.title.replace('Size ', '').replace(' / ', '-').substring(0, 10);
                          const color = totalVarStock > 0 ? 'text-gray-700 font-medium bg-gray-100' : 'text-gray-400 bg-gray-50';
@@ -560,8 +577,6 @@
                  const variant = product.variants.find(v => v.id == variantId);
                  if(variant) {
                      variant.inventory[currentStore] = newQty;
-                     // Optional: Optimistically update actualShopifyStock if you want instant feedback
-                     // But for now, we rely on the status update
                  }
                  product.status = newStatus.toUpperCase(); 
              }
