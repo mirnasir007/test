@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopify Live Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; }
+        
+        /* 3:2 Ratio Enforced */
+        .retro-img-container { 
+            aspect-ratio: 3/2; 
+            overflow: hidden; 
+            background-color: #e2e8f0; 
+            cursor: pointer;
+            position: relative;
+        }
+        .retro-img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            transition: transform 0.3s ease; 
+        }
+        .product-card:hover .retro-img { transform: scale(1.05); }
+        
+        .retro-img-container::after {
+            content: '\f00e';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+        .retro-img-container:hover::after { opacity: 1; }
+
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #16a34a;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-slate-800 relative">
+
+    <script>
+        // *** IMPORTANT: REPLACE WITH YOUR NEW DEPLOYED URL IF CHANGED ***
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzZLIADFPhsYJW8wABKi3CGBvoRklmMAD5QMZJVntCoJBeJVT7JCKQrZbJ7vehVZII/exec";
+        
+        const STORE_CREDENTIALS = {
+            'dhanmondi': '111',
+            'banani': '222',
+            'uttara': '333'
+        };
+    </script>
+
+    <!-- LOGIN OVERLAY -->
+    <div id="loginOverlay" class="fixed inset-0 z-[100] bg-gray-900 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
+            <div class="bg-green-600 h-2"></div>
+            <div class="p-8">
+                <div class="text-center mb-8">
+                    <i class="fa-brands fa-shopify text-5xl text-green-600 mb-4"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">Store Login</h1>
+                    <p class="text-sm text-gray-500">Access Live Shopify Inventory</p>
+                </div>
+                <div class="space-y-4">
+                    <select id="loginStoreSelect" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="" disabled selected>Select Your Store</option>
+                        <option value="dhanmondi">Dhanmondi Store</option>
+                        <option value="banani">Banani Store</option>
+                        <option value="uttara">Uttara Store</option>
+                    </select>
+                    <div id="passwordFieldWrapper" class="hidden">
+                        <input type="password" id="loginPassword" placeholder="Enter Store Password" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <button id="loginBtn" onclick="attemptLogin()" class="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50" disabled>Access Dashboard</button>
+                    <p id="loginError" class="text-red-500 text-xs mt-2 hidden text-center">Incorrect password</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMAGE PREVIEW MODAL -->
+    <div id="imagePreviewModal" class="fixed inset-0 z-[150] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-sm opacity-0 transition-opacity duration-300" onclick="closeImagePreview(event)">
+        <div class="relative max-w-5xl w-full max-h-screen flex flex-col items-center justify-center" onclick="event.stopPropagation()">
+            <button onclick="closeImagePreview(null, true)" class="absolute -top-12 right-0 md:right-0 md:-top-10 text-white/70 hover:text-white transition-colors z-50">
+                <i class="fa-solid fa-times text-3xl"></i>
+            </button>
+            <img id="previewImage" src="" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-gray-800" alt="Product Preview">
+            <h3 id="previewTitle" class="text-white/90 mt-4 text-lg font-medium text-center tracking-wide"></h3>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTENT -->
+    <div class="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-2 min-w-max">
+                <i class="fa-brands fa-shopify text-3xl text-green-600"></i>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Store Manager</h1>
+                    <p class="text-xs text-gray-500">Connected to Shopify</p>
+                </div>
+            </div>
+            <div class="flex flex-col md:flex-row gap-3 w-full lg:justify-end">
+                <div class="flex items-center bg-green-50 rounded-lg px-3 py-2 border border-green-200">
+                    <span class="text-xs font-semibold mr-2 text-green-700 whitespace-nowrap">LOGGED IN:</span>
+                    <span id="displayStoreName" class="text-sm font-bold text-green-800 uppercase tracking-wide">...</span>
+                    <button onclick="logout()" class="ml-3 text-xs text-red-500 font-bold underline">Logout</button>
+                </div>
+                <select id="collectionFilter" class="w-full md:w-48 pl-3 pr-8 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500">
+                    <option value="">Select Collection</option>
+                </select>
+                <div class="relative w-full md:w-64">
+                    <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
+                    <input type="text" id="searchInput" placeholder="Search SKU or Name..." class="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <div id="loadingState" class="hidden text-center py-20">
+            <div class="loader"></div>
+            <p class="text-gray-500">Fetching products & collections...</p>
+        </div>
+
+        <div id="statsBar" class="hidden flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold text-gray-700">Products</h2>
+            <div class="text-sm text-gray-500">Found: <span id="productCount" class="font-bold text-black">0</span></div>
+        </div>
+
+        <div id="initialState" class="text-center py-24">
+            <div class="text-gray-300 text-6xl mb-4"><i class="fa-solid fa-layer-group"></i></div>
+            <h2 class="text-2xl font-bold text-gray-700 mb-2">Welcome</h2>
+            <p class="text-gray-500">Select a Collection or Search to view live inventory.</p>
+        </div>
+
+        <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 hidden"></div>
+        
+        <div id="emptyState" class="hidden text-center py-20">
+            <div class="text-gray-400 text-5xl mb-3"><i class="fa-solid fa-box-open"></i></div>
+            <p class="text-gray-500">No products found.</p>
+        </div>
+    </div>
+
+    <!-- Variant Modal -->
+    <div id="variantModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+                <div>
+                    <h3 class="font-bold text-lg" id="modalProductName">...</h3>
+                    <p class="text-xs text-gray-500">Editing: <span id="modalStoreName" class="font-bold text-blue-600 uppercase">...</span></p>
+                </div>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 max-h-[60vh] overflow-y-auto custom-scroll" id="modalVariantsContainer"></div>
+            <div class="bg-gray-50 px-6 py-4 border-t flex justify-end gap-3">
+                <button onclick="closeModal()" class="px-4 py-2 text-sm text-gray-600">Cancel</button>
+                <button id="saveBtn" onclick="saveInventoryChanges()" class="px-6 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 flex items-center gap-2">
+                    <span id="saveBtnText">Update Shopify</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-3">
+        <i class="fa-solid fa-circle-check text-green-400"></i> <span id="toastMsg">Success</span>
+    </div>
+
+    <script>
+        // --- STATE & DATA ---
+        let products = [];
+        let currentStore = null;
+        let currentCollection = '';
+        let currentSearch = '';
+        let currentEditingProductId = null;
+
+        // --- AUTH & INIT ---
+        const loginStoreSelect = document.getElementById('loginStoreSelect');
+        const passwordFieldWrapper = document.getElementById('passwordFieldWrapper');
+        const loginBtn = document.getElementById('loginBtn');
+
+        loginStoreSelect.addEventListener('change', function() {
+            if(this.value) {
+                passwordFieldWrapper.classList.remove('hidden');
+                loginBtn.disabled = false;
+            }
+        });
+
+        function attemptLogin() {
+            const selectedStore = loginStoreSelect.value;
+            const password = document.getElementById('loginPassword').value;
+            if (password === STORE_CREDENTIALS[selectedStore]) {
+                currentStore = selectedStore;
+                document.getElementById('displayStoreName').innerText = currentStore;
+                document.getElementById('loginOverlay').style.display = 'none';
+                fetchProducts(); 
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        function logout() { location.reload(); }
+
+        // --- API CALLS ---
+
+        async function fetchProducts() {
+            document.getElementById('initialState').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${WEB_APP_URL}?action=getProducts`);
+                const data = await response.json();
+
+                if(data.status === 'success') {
+                    products = data.products;
+                    populateCollections(); 
+                    document.getElementById('loadingState').classList.add('hidden');
+                    document.getElementById('initialState').classList.remove('hidden');
+                    showToast(`Loaded ${products.length} Products!`);
+                } else {
+                    alert("Error fetching data: " + data.message);
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Failed to connect to backend.");
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+        }
+
+        async function updateInventoryOnServer(payload) {
+            const saveBtn = document.getElementById('saveBtn');
+            const originalText = document.getElementById('saveBtnText').innerText;
+            saveBtn.disabled = true;
+            document.getElementById('saveBtnText').innerText = "Syncing...";
+            saveBtn.classList.add('opacity-75');
+
+            try {
+                const response = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                if(data.status === 'success') {
+                    showToast("Inventory Updated Successfully!");
+                    // We optimistically update local status to match what backend just did
+                    updateLocalProductData(payload.productId, payload.variantId, payload.quantity, data.newStatus);
+                    renderProducts();
+                    closeModal();
+                } else {
+                    alert("Update Failed: " + data.message);
+                }
+            } catch (error) {
+                alert("Network Error");
+            } finally {
+                saveBtn.disabled = false;
+                document.getElementById('saveBtnText').innerText = originalText;
+                saveBtn.classList.remove('opacity-75');
+            }
+        }
+
+        // --- IMAGE PREVIEW LOGIC ---
+        function openImagePreview(src, title) {
+            const modal = document.getElementById('imagePreviewModal');
+            const img = document.getElementById('previewImage');
+            const text = document.getElementById('previewTitle');
+            
+            img.src = src;
+            text.innerText = title;
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); }, 10);
+        }
+
+        function closeImagePreview(event, force = false) {
+            if (force || event.target.id === 'imagePreviewModal') {
+                const modal = document.getElementById('imagePreviewModal');
+                modal.classList.add('opacity-0');
+                setTimeout(() => { modal.classList.add('hidden'); }, 300);
+            }
+        }
+
+        // --- RENDER LOGIC ---
+
+        function populateCollections() {
+            const allCollections = products.flatMap(p => p.collections || []);
+            const uniqueCollections = [...new Set(allCollections)].sort();
+            
+            const select = document.getElementById('collectionFilter');
+            select.innerHTML = '<option value="">Select Collection</option>';
+            
+            uniqueCollections.forEach(col => {
+                const option = document.createElement('option');
+                option.value = col;
+                option.innerText = col;
+                select.appendChild(option);
+            });
+        }
+
+        function getProductStatus(product) {
+            // FIXED: Using actual Shopify Status from API
+            const status = product.status ? product.status.toUpperCase() : 'DRAFT';
+            
+            // Calculate Total Actual Stock from Shopify
+            let actualShopifyStock = 0;
+            product.variants.forEach(v => {
+                actualShopifyStock += (v.actualShopifyStock || 0);
+            });
+
+            const colorClass = status === 'ACTIVE' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200';
+            
+            return { totalStock: actualShopifyStock, status, colorClass };
+        }
+
+        function renderProducts() {
+            if (!currentStore) return;
+
+            const grid = document.getElementById('productGrid');
+            const initialState = document.getElementById('initialState');
+            const emptyState = document.getElementById('emptyState');
+            const statsBar = document.getElementById('statsBar');
+            const countSpan = document.getElementById('productCount');
+
+            if (!currentCollection && !currentSearch) {
+                initialState.classList.remove('hidden');
+                grid.classList.add('hidden');
+                emptyState.classList.add('hidden');
+                statsBar.classList.add('hidden');
+                return;
+            }
+
+            initialState.classList.add('hidden');
+            statsBar.classList.remove('hidden');
+            grid.innerHTML = '';
+            
+            const filteredProducts = products.filter(p => {
+                const matchesCollection = currentCollection === '' || (p.collections && p.collections.includes(currentCollection));
+                const matchesSearch = p.title.toLowerCase().includes(currentSearch.toLowerCase()) || 
+                                      p.variants.some(v => v.sku.toLowerCase().includes(currentSearch.toLowerCase()));
+                return matchesCollection && matchesSearch;
+            });
+
+            countSpan.innerText = filteredProducts.length;
+
+            if (filteredProducts.length === 0) {
+                emptyState.classList.remove('hidden');
+                grid.classList.add('hidden');
+                return;
+            } 
+            
+            emptyState.classList.add('hidden');
+            grid.classList.remove('hidden');
+
+            filteredProducts.forEach(product => {
+                const info = getProductStatus(product);
+                const mainSku = product.variants[0]?.sku || 'N/A';
+                
+                let variantBreakdownHtml = '';
+                if(product.variants.length > 0) {
+                    variantBreakdownHtml = '<div class="flex flex-wrap gap-1 mt-1.5">';
+                    product.variants.forEach(v => {
+                         // --- FIX HERE: Use actualShopifyStock instead of summing metafields ---
+                         const totalVarStock = v.actualShopifyStock || 0; 
+                         
+                         // Create short display name (e.g. "Size M" -> "M")
+                         const displayName = v.title.replace('Size ', '').replace(' / ', '-').substring(0, 10);
+                         
+                         const color = totalVarStock > 0 ? 'text-gray-700 font-medium bg-gray-100' : 'text-gray-400 bg-gray-50';
+                         variantBreakdownHtml += `<span class="text-[10px] px-1.5 py-0.5 rounded border border-gray-100 ${color}">${displayName}: ${totalVarStock}</span>`;
+                    });
+                    variantBreakdownHtml += '</div>';
+                }
+
+                const card = document.createElement('div');
+                card.className = 'product-card bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group flex flex-col h-full';
+                
+                card.innerHTML = `
+                    <div class="retro-img-container relative" onclick="openImagePreview('${product.image}', '${product.title.replace(/'/g, "\\'")}')">
+                        <img src="${product.image}" class="retro-img" onerror="this.src='https://via.placeholder.com/300?text=No+Image'">
+                        <div class="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border shadow-sm ${info.colorClass}">
+                            ${info.status}
+                        </div>
+                    </div>
+                    
+                    <div class="p-3 flex flex-col flex-grow">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">${product.type || 'Product'}</span>
+                            <span class="text-[10px] text-gray-400 font-mono">SKU: ${mainSku}</span>
+                        </div>
+                        <h3 class="font-bold text-gray-800 text-base leading-tight mb-2 line-clamp-2">${product.title}</h3>
+                        
+                        <div class="mt-auto">
+                            <p class="text-xs text-gray-500 font-semibold">Total Inventory: ${info.totalStock}</p>
+                            ${variantBreakdownHtml}
+                            
+                            <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                                <button onclick="openModal('${product.id}')" class="flex-1 bg-gray-900 text-white text-xs font-bold uppercase tracking-wide py-2 rounded hover:bg-gray-700 transition-colors">
+                                    Manage
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // --- UPDATE LOGIC ---
+
+        function openModal(productId) {
+            const product = products.find(p => p.id == productId);
+            if (!product) return;
+            currentEditingProductId = productId;
+            
+            document.getElementById('modalProductName').innerText = product.title;
+            document.getElementById('modalStoreName').innerText = currentStore;
+            
+            const container = document.getElementById('modalVariantsContainer');
+            container.innerHTML = '';
+
+            product.variants.forEach(variant => {
+                const currentStock = variant.inventory[currentStore] || 0;
+                
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100 mb-3 last:mb-0';
+                
+                div.innerHTML = `
+                    <div>
+                        <p class="font-semibold text-gray-700 text-sm">${variant.title}</p>
+                        <p class="text-[10px] text-gray-400 font-mono">SKU: ${variant.sku}</p>
+                    </div>
+                    
+                    <div class="flex items-center gap-3">
+                        <button onclick="adjustInput('input-${variant.id}', -1)" class="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100 text-gray-600">
+                            <i class="fa-solid fa-minus text-xs"></i>
+                        </button>
+                        
+                        <input type="number" id="input-${variant.id}" value="${currentStock}" min="0" 
+                            class="w-16 text-center font-bold text-gray-800 bg-white border border-gray-300 rounded py-1 focus:ring-2 focus:ring-blue-500 outline-none"
+                            data-variant-id="${variant.id}"
+                            data-inventory-item-id="${variant.inventoryItemId}">
+                            
+                        <button onclick="adjustInput('input-${variant.id}', 1)" class="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            document.getElementById('variantModal').classList.remove('hidden');
+        }
+
+        function adjustInput(inputId, amount) {
+            const input = document.getElementById(inputId);
+            let val = parseInt(input.value) || 0;
+            val += amount;
+            if (val < 0) val = 0;
+            input.value = val;
+        }
+
+        function closeModal() {
+            document.getElementById('variantModal').classList.add('hidden');
+            currentEditingProductId = null;
+        }
+
+        function updateLocalProductData(productId, variantId, newQty, newStatus) {
+             const product = products.find(p => p.id == productId);
+             if(product) {
+                 const variant = product.variants.find(v => v.id == variantId);
+                 if(variant) {
+                     // Update app's local memory of stock for that store
+                     variant.inventory[currentStore] = newQty;
+                 }
+                 // IMPORTANT: Also update the status locally so badge changes immediately without refresh
+                 product.status = newStatus.toUpperCase(); 
+             }
+        }
+
+        async function saveInventoryChanges() {
+            if (!currentEditingProductId) return;
+            const product = products.find(p => p.id == currentEditingProductId);
+            const inputs = document.querySelectorAll('#modalVariantsContainer input');
+            
+            for (const input of inputs) {
+                const variantId = input.getAttribute('data-variant-id');
+                const inventoryItemId = input.getAttribute('data-inventory-item-id');
+                const newQty = parseInt(input.value) || 0;
+                
+                const variant = product.variants.find(v => v.id == variantId);
+                const oldQty = variant.inventory[currentStore];
+                
+                if (newQty !== oldQty) {
+                    const payload = {
+                        action: 'updateInventory',
+                        productId: product.id,
+                        variantId: variantId,
+                        inventoryItemId: inventoryItemId,
+                        store: currentStore,
+                        quantity: newQty,
+                        otherStoresData: variant.inventory
+                    };
+                    await updateInventoryOnServer(payload);
+                }
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Listeners
+        document.getElementById('searchInput').addEventListener('input', (e) => { currentSearch = e.target.value; renderProducts(); });
+        document.getElementById('collectionFilter').addEventListener('change', (e) => { currentCollection = e.target.value; renderProducts(); });
+
+    </script>
+</body>
+</html>
