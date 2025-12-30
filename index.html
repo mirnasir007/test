@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Website Inventory</title>
     
-    <!-- PWA / Mobile App Settings -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,7 +12,6 @@
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="apple-touch-icon" href="logo.png">
     
-    <!-- Base64 Manifest for PWA -->
     <link rel="manifest" id="manifest-placeholder">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -94,7 +92,6 @@
         });
     </script>
 
-    <!-- LOGIN OVERLAY -->
     <div id="loginOverlay" class="fixed inset-0 z-[100] bg-gray-900 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
             <div class="bg-green-600 h-2"></div>
@@ -124,7 +121,6 @@
         </div>
     </div>
 
-    <!-- PREVIEW MODAL -->
     <div id="imagePreviewModal" class="fixed inset-0 z-[150] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-sm opacity-0 transition-opacity duration-300" onclick="closeImagePreview(event)">
         <div class="relative max-w-5xl w-full max-h-screen flex flex-col items-center justify-center" onclick="event.stopPropagation()">
             <button onclick="closeImagePreview(null, true)" class="absolute -top-12 right-0 md:right-0 md:-top-10 text-white/70 hover:text-white transition-colors z-50"><i class="fa-solid fa-times text-3xl"></i></button>
@@ -133,11 +129,9 @@
         </div>
     </div>
 
-    <!-- HEADER (Redesigned for Mobile) -->
     <div class="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-3 py-3">
             
-            <!-- Top Row: Title & Store Info -->
             <div class="flex justify-between items-start mb-3">
                 <div class="flex items-center gap-2">
                     <i class="fa-brands fa-shopify text-2xl text-green-600"></i>
@@ -148,12 +142,10 @@
                 </div>
                 
                 <div class="text-right flex items-center gap-3">
-                    <!-- ADMIN NOTIFICATION BELL (Only visible for Admin) -->
                     <div id="adminBellContainer" class="notification-bell hidden">
                         <i class="fa-solid fa-bell text-gray-600 text-lg hover:text-blue-600 transition-colors" onclick="toggleAdminNotifications()"></i>
                         <span id="adminBellDot" class="notification-dot"></span>
                         
-                        <!-- Dropdown Popup for Notifications -->
                         <div id="adminNotificationPopup" class="notification-popup">
                             <div class="p-3 border-b border-gray-100 font-bold text-xs text-gray-500 bg-gray-50">RECENT ACTIVITY</div>
                             <div id="adminNotificationList" class="divide-y divide-gray-100">
@@ -171,10 +163,8 @@
                 </div>
             </div>
             
-            <!-- Controls Row: One Line on Mobile -->
             <div class="flex items-center gap-2 w-full">
                 
-                <!-- Custom Searchable Dropdown (Flex Grow) -->
                 <div class="custom-select-wrapper flex-1 min-w-0" id="customDropdown">
                     <div class="custom-select-trigger" onclick="toggleDropdown()">
                         <span id="dropdownSelectedText" class="truncate">Select Collection</span>
@@ -185,17 +175,14 @@
                             <input type="text" id="dropdownSearchInput" placeholder="Search collection..." class="w-full text-xs p-2 border border-gray-200 rounded bg-gray-50 focus:outline-none focus:border-blue-500" onclick="event.stopPropagation()" oninput="filterDropdownOptions()">
                         </div>
                         <div class="max-h-48 overflow-y-auto custom-scroll" id="dropdownListContainer">
-                            <!-- Options injected here -->
-                        </div>
+                            </div>
                     </div>
                 </div>
 
-                <!-- Clear Button (Fixed Width) -->
                 <button onclick="clearFilters()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center border border-gray-300 transition-colors" title="Reset">
                     <i class="fa-solid fa-rotate-left text-xs"></i>
                 </button>
 
-                <!-- Search Input (Flex Grow) -->
                 <div class="relative flex-1 min-w-0">
                     <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400 text-xs"></i>
                     <input type="text" id="searchInput" placeholder="Search..." class="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs font-medium focus:outline-none focus:border-green-500">
@@ -204,7 +191,6 @@
         </div>
     </div>
 
-    <!-- NOTIFICATIONS -->
     <div id="notificationsContainer" class="max-w-7xl mx-auto px-4 mt-2 hidden">
         <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 shadow-sm">
             <h3 class="text-xs font-bold text-blue-800 mb-2 flex items-center gap-2"><i class="fa-solid fa-bell text-blue-600"></i> Updates</h3>
@@ -212,14 +198,11 @@
         </div>
     </div>
 
-    <!-- MAIN BODY -->
     <div class="max-w-full mx-auto px-4 py-4">
         
-        <!-- Stats & Sorting -->
         <div id="statsBar" class="hidden flex justify-between items-center mb-4 max-w-7xl mx-auto">
             <h2 class="text-lg font-bold text-gray-700">Inventory</h2>
             <div class="flex items-center gap-2">
-                <!-- SORTING DROPDOWN -->
                 <select id="sortFilter" class="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-green-500 bg-white text-gray-700 h-8">
                     <option value="CREATED_AT:true" selected>Date, new to old</option>
                     <option value="CREATED_AT:false">Date, old to new</option>
@@ -235,7 +218,6 @@
             </div>
         </div>
 
-        <!-- Initial Blank State -->
         <div id="initialState" class="text-center py-24">
             <div class="bg-white p-8 rounded-2xl shadow-sm inline-block border border-gray-100 mx-4">
                 <div class="text-green-600 text-5xl mb-4"><i class="fa-solid fa-boxes-stacked"></i></div>
@@ -250,10 +232,8 @@
             <p id="loadingText" class="text-xs text-gray-500 mt-2">Loading...</p>
         </div>
 
-        <!-- Product Grid -->
         <div id="productGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 hidden"></div>
         
-        <!-- LOAD MORE BUTTON -->
         <div id="loadMoreContainer" class="hidden text-center mt-8 pb-10">
             <button onclick="loadMoreProducts()" class="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-6 py-2 rounded-full hover:bg-gray-50 shadow-sm transition-all">
                 Load More <i class="fa-solid fa-arrow-down ml-1"></i>
@@ -266,7 +246,6 @@
         </div>
     </div>
 
-    <!-- MODAL -->
     <div id="variantModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
             <div class="bg-gray-50 px-5 py-3 border-b flex justify-between items-center">
@@ -297,7 +276,7 @@
         let selectedCollectionId = "";
         let notificationInterval = null;
 
-        // --- PWA SERVICE WORKER REGISTRATION (Inline) ---
+        // --- PWA SERVICE WORKER REGISTRATION ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 const swCode = `self.addEventListener('install', (e) => e.waitUntil(self.skipWaiting()));self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));self.addEventListener('fetch', (e) => {});`;
@@ -368,42 +347,73 @@
 
         function logout() { localStorage.removeItem('storeUser'); location.reload(); }
 
-        // --- OPTIMISTIC UI UPDATE ---
+        // --- INVENTORY UPDATE (UPDATED FOR SERVER WAIT) ---
         async function saveInventoryChanges() {
             if (!currentEditingProductId) return;
-            const product = products.find(p => p.id == currentEditingProductId);
-            const inputs = document.querySelectorAll('#modalVariantsContainer input');
-            
-            let updates = [];
-            inputs.forEach(input => {
-                const variantId = input.getAttribute('data-variant-id');
-                const inventoryItemId = input.getAttribute('data-inventory-item-id');
-                const newQty = parseInt(input.value) || 0;
-                
-                const variant = product.variants.find(v => v.id == variantId);
-                variant.inventory[currentStore] = newQty; 
-                
-                updates.push({
-                    productId: product.id, variantId: variantId, inventoryItemId: inventoryItemId,
-                    store: currentStore, quantity: newQty, otherStoresData: variant.inventory
-                });
-            });
 
-            closeModal();
-            renderProducts(); 
-            showToast("Updating in background...");
+            // 1. UPDATE BUTTON STATE (PROCESSING)
+            const saveBtn = document.getElementById('saveBtn');
+            const saveBtnText = document.getElementById('saveBtnText');
+            const originalText = saveBtnText.innerText;
+            
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...`;
+            saveBtn.classList.add('opacity-75', 'cursor-not-allowed');
 
             try {
-                const promises = updates.map(payload => {
-                    payload.action = 'updateInventory';
-                    payload.collectionName = currentCollectionName;
-                    return fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+                const product = products.find(p => p.id == currentEditingProductId);
+                const inputs = document.querySelectorAll('#modalVariantsContainer input');
+                
+                let updates = [];
+                inputs.forEach(input => {
+                    const variantId = input.getAttribute('data-variant-id');
+                    const inventoryItemId = input.getAttribute('data-inventory-item-id');
+                    const newQty = parseInt(input.value) || 0;
+                    
+                    // Optimistically update local data for immediate grid reflection (reverted on error)
+                    const variant = product.variants.find(v => v.id == variantId);
+                    variant.inventory[currentStore] = newQty; 
+                    
+                    updates.push({
+                        productId: product.id, 
+                        variantId: variantId, 
+                        inventoryItemId: inventoryItemId,
+                        store: currentStore, 
+                        quantity: newQty, 
+                        action: 'updateInventory',
+                        collectionName: currentCollectionName
+                    });
                 });
-                await Promise.all(promises);
-                showToast("Synced!");
+
+                // 2. WAIT FOR SERVER RESPONSE
+                const promises = updates.map(payload => {
+                    return fetch(WEB_APP_URL, { 
+                        method: 'POST', 
+                        body: JSON.stringify(payload) 
+                    });
+                });
+
+                const responses = await Promise.all(promises);
+                const jsonResponses = await Promise.all(responses.map(r => r.json()));
+                const hasError = jsonResponses.some(res => res.status === 'error');
+
+                if (hasError) {
+                    throw new Error("Server reporting error");
+                }
+
+                // 3. SUCCESS
+                closeModal();
+                renderProducts(); // Refresh Grid with updated local data
+                showToast("Successfully Updated!");
+
             } catch (error) {
                 console.error(error);
-                alert("Sync failed. Check connection.");
+                alert("Update Failed! Server might be busy or connection lost.");
+            } finally {
+                // 4. RESET BUTTON
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = `<span id="saveBtnText">${originalText}</span>`;
+                saveBtn.classList.remove('opacity-75', 'cursor-not-allowed');
             }
         }
 
