@@ -227,16 +227,17 @@
                     <h3 class="font-bold text-base truncate max-w-[200px]" id="modalProductName">...</h3>
                     <p class="text-[10px] text-gray-500 uppercase font-bold tracking-wider" id="modalStoreName">...</p>
                 </div>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times text-lg"></i></button>
+                <button id="modalCloseBtn" onclick="closeModal()" class="text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity">
+                    <i class="fa-solid fa-times text-lg"></i>
+                </button>
             </div>
             
             <div class="p-5 overflow-y-auto custom-scroll flex-grow" id="modalVariantsContainer"></div>
             
             <div class="bg-gray-50 px-5 py-3 border-t flex justify-between items-center gap-2 flex-shrink-0">
-                <button onclick="closeModal()" class="px-3 py-2 text-xs font-medium text-gray-600 border border-gray-300 rounded hover:bg-gray-100">Cancel</button>
+                <button id="modalCancelBtn" onclick="closeModal()" class="px-3 py-2 text-xs font-medium text-gray-600 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">Cancel</button>
                 <div class="flex gap-2">
-                    <!-- Global Update Button (Normal) -->
-                    <button id="saveBtn" onclick="saveInventoryChanges('main')" class="px-4 py-2 bg-black text-white text-xs font-bold uppercase rounded hover:bg-gray-800 flex items-center gap-2">
+                    <button id="saveBtn" onclick="saveInventoryChanges('main')" class="px-4 py-2 bg-black text-white text-xs font-bold uppercase rounded hover:bg-gray-800 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
                         <span id="saveBtnText">Update</span>
                     </button>
                 </div>
@@ -325,92 +326,111 @@
 
         // --- IMPROVED INVENTORY UPDATE (ADMIN CAN FIX BRANCHES + RESET ALL) ---
         async function saveInventoryChanges(type, specificVariantId = null, specificStore = null) {
-            if (!currentEditingProductId) return;
+    if (!currentEditingProductId) return;
 
-            // UI Feedback
-            let btn = document.getElementById('saveBtn');
-            if (type === 'branch') {
-                btn = document.querySelector(`button[onclick="saveInventoryChanges('branch', '${specificVariantId}', '${specificStore}')"]`);
-            } else if (type === 'reset_all') {
-                btn = document.querySelector(`button[onclick="saveInventoryChanges('reset_all', '${specificVariantId}')"]`);
-            }
-            
-            const originalText = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i>`;
-            
-            try {
-                const product = products.find(p => p.id == currentEditingProductId);
-                let updates = [];
+    let btn = document.getElementById('saveBtn');
+    const closeBtn = document.getElementById('modalCloseBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
 
-                if (type === 'main') {
-                    // Normal Update (Global for Admin, Local for Branch)
-                    const inputs = document.querySelectorAll('#modalVariantsContainer input.main-input');
-                    inputs.forEach(input => {
-                        const variantId = input.getAttribute('data-variant-id');
-                        const inventoryItemId = input.getAttribute('data-inventory-item-id');
-                        const newQty = parseInt(input.value) || 0;
-                        const variant = product.variants.find(v => v.id == variantId);
-                        variant.inventory[currentStore] = newQty; 
-                        
-                        updates.push({
-                            productId: product.id, variantId: variantId, inventoryItemId: inventoryItemId,
-                            store: currentStore, quantity: newQty, action: 'updateInventory', collectionName: currentCollectionName
-                        });
-                    });
-                } else if (type === 'branch') {
-                    // *** ADMIN FIXING SINGLE BRANCH ***
-                    const input = document.getElementById(`fix-${specificStore}-${specificVariantId}`);
-                    const newQty = parseInt(input.value) || 0;
-                    const variant = product.variants.find(v => v.id == specificVariantId);
-                    
-                    variant.inventory[specificStore] = newQty;
+    if (type === 'branch') {
+        btn = document.querySelector(`button[onclick="saveInventoryChanges('branch', '${specificVariantId}', '${specificStore}')"]`);
+    } else if (type === 'reset_all') {
+        btn = document.querySelector(`button[onclick="saveInventoryChanges('reset_all', '${specificVariantId}')"]`);
+    }
 
-                    updates.push({
-                        productId: product.id, variantId: specificVariantId, inventoryItemId: variant.inventoryItemId,
-                        store: specificStore, quantity: newQty, action: 'updateInventory', collectionName: currentCollectionName
-                    });
-                } else if (type === 'reset_all') {
-                    // *** ADMIN RESETTING ALL BRANCHES TO 0 ***
-                    const stores = ['dhanmondi', 'banani', 'uttara'];
-                    const variant = product.variants.find(v => v.id == specificVariantId);
-                    
-                    stores.forEach(store => {
-                        variant.inventory[store] = 0; // Local Update
-                        // Prepare input reset for UI if exists
-                        const input = document.getElementById(`fix-${store}-${specificVariantId}`);
-                        if(input) input.value = 0;
+    const originalText = btn.innerHTML;
 
-                        updates.push({
-                            productId: product.id, variantId: specificVariantId, inventoryItemId: variant.inventoryItemId,
-                            store: store, quantity: 0, action: 'updateInventory', collectionName: currentCollectionName
-                        });
-                    });
-                }
+    btn.disabled = true;
+    if (closeBtn) closeBtn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
 
-                // Execute all requests in parallel
-                const promises = updates.map(payload => fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) }));
-                await Promise.all(promises);
+    btn.innerHTML = `<span class="mr-2">Processing</span> <i class="fa-solid fa-circle-notch fa-spin"></i>`;
 
-                // Feedback
-                if (type === 'branch') {
-                    showToast(`${specificStore} Updated!`);
-                } else if (type === 'reset_all') {
-                    showToast("All Branches Reset to 0!");
-                } else {
-                    closeModal();
-                    renderProducts(); 
-                    showToast("Successfully Updated!");
-                }
+    try {
+        const product = products.find(p => p.id == currentEditingProductId);
+        let updates = [];
 
-            } catch (error) {
-                console.error(error);
-                document.getElementById('errorModal').classList.remove('hidden');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }
+        if (type === 'main') {
+            const inputs = document.querySelectorAll('#modalVariantsContainer input.main-input');
+            inputs.forEach(input => {
+                const variantId = input.getAttribute('data-variant-id');
+                const inventoryItemId = input.getAttribute('data-inventory-item-id');
+                const newQty = parseInt(input.value) || 0;
+                const variant = product.variants.find(v => v.id == variantId);
+                variant.inventory[currentStore] = newQty;
+
+                updates.push({
+                    productId: product.id,
+                    variantId: variantId,
+                    inventoryItemId: inventoryItemId,
+                    store: currentStore,
+                    quantity: newQty,
+                    action: 'updateInventory',
+                    collectionName: currentCollectionName
+                });
+            });
+        } else if (type === 'branch') {
+            const input = document.getElementById(`fix-${specificStore}-${specificVariantId}`);
+            const newQty = parseInt(input.value) || 0;
+            const variant = product.variants.find(v => v.id == specificVariantId);
+            variant.inventory[specificStore] = newQty;
+
+            updates.push({
+                productId: product.id,
+                variantId: specificVariantId,
+                inventoryItemId: variant.inventoryItemId,
+                store: specificStore,
+                quantity: newQty,
+                action: 'updateInventory',
+                collectionName: currentCollectionName
+            });
+        } else if (type === 'reset_all') {
+            const stores = ['dhanmondi', 'banani', 'uttara'];
+            const variant = product.variants.find(v => v.id == specificVariantId);
+
+            stores.forEach(store => {
+                variant.inventory[store] = 0;
+                const input = document.getElementById(`fix-${store}-${specificVariantId}`);
+                if (input) input.value = 0;
+
+                updates.push({
+                    productId: product.id,
+                    variantId: specificVariantId,
+                    inventoryItemId: variant.inventoryItemId,
+                    store: store,
+                    quantity: 0,
+                    action: 'updateInventory',
+                    collectionName: currentCollectionName
+                });
+            });
         }
+
+        const promises = updates.map(payload => fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        }));
+        await Promise.all(promises);
+
+        if (type === 'branch') {
+            showToast(`${specificStore} Updated!`);
+        } else if (type === 'reset_all') {
+            showToast("All Branches Reset to 0!");
+        } else {
+            closeModal();
+            renderProducts();
+            showToast("Successfully Updated!");
+        }
+
+    } catch (error) {
+        console.error(error);
+        document.getElementById('errorModal').classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if (closeBtn) closeBtn.disabled = false;
+        if (cancelBtn) cancelBtn.disabled = false;
+    }
+}
 
         // --- FETCHING ---
         async function loadInitialData() {
